@@ -1,0 +1,5 @@
+class Config():
+    RECEIVE_TOKENS = 0
+    SEND_TOKENS = 0
+    UPDATE_STATE = 1
+    PREDICTION_NUM = 3
