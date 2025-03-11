@@ -16,12 +16,13 @@ class Decoding(ABC):
         seed_everything(args.seed)
         self.args = args
         self.seed = args.seed
+        self.seed_set = set()
         self.accelerator = Accelerator()
 
         # todo 进程数量 根据 args.eval_mode 进行断言
 
-        self.draft_forward_time:dict = dict()
-        self.target_forward_time:int = 0
+        self.draft_forward_times:int = 0
+        self.target_forward_times:int = 0
         self.num_acc_tokens:list = list()
         self.vocab_size = args.vocab_size
         self.eval_mode = args.eval_mode
@@ -37,6 +38,7 @@ class Decoding(ABC):
         self.is_target_model = False
         self.is_smallest_drafter = False
         self.local_rank = self.accelerator.local_process_index
+        self.device = self.accelerator.device  # 直接绑定设备
         self.verified_len = 0
         self.pending_verified_len = 0
 
@@ -52,7 +54,7 @@ class Decoding(ABC):
                                                                      torch_dtype=torch.bfloat16,
                                                                      trust_remote_code=True).eval()
             # draft_forward_time初始化
-            self.draft_forward_time[self.args.draft_models_dir[0]] = 0
+            # self.draft_forward_time[self.args.draft_models_dir[0]] = 0
         elif self.eval_mode == "single_model" and self.model_name is not None:
             self.color_print(f"Loading models:{self.args.target_model_dir}\n", 3)
             # 单独测试模型的时候作为 target model 测试
@@ -60,30 +62,52 @@ class Decoding(ABC):
                                                               torch_dtype=torch.bfloat16,
                                                               trust_remote_code=True).eval()
         elif self.eval_mode in ["para_sd"]:
-            num_gpus = torch.cuda.device_count()
+            print(f"进程 {self.accelerator.local_process_index} 的本地设备: {self.accelerator.device}")
+
+            # 确保 accelerator 已初始化
+            if not hasattr(self, 'accelerator'):
+                self.accelerator = Accelerator()
+            # 所有模型仅用于推理，禁用梯度
+            torch.set_grad_enabled(False)
+
+            # 动态计算可用 GPU
             num_drafters = len(self.args.draft_models_dir)
+            num_total_gpus = torch.cuda.device_count()
 
-            # 当前模型是 target model:
-            if self.local_rank == num_drafters:
-                # 自动分配所有剩余gpu ，使用 平衡策略
-                self.target_model = AutoModelForCausalLM.from_pretrained(
-                    self.args.target_model_dir,
-                    device_map="balanced_low_0",
-                    torch_dtype=torch.bfloat16,
-                    trust_remote_code=True,
-                ).eval()
-                self.is_target_model = True
+            # 防御性检查
+            assert num_total_gpus > num_drafters, "GPU 不足，无法隔离 Draft 和 Target 模型"
 
-            else :
-                # drafters 加载
+            if self.accelerator.local_process_index < num_drafters:
+                self.color_print(f"{self.accelerator.device} Loading models:{self.args.draft_models_dir[self.accelerator.local_process_index]}\n", 3)
+                # Draft 模型：严格绑定到当前设备
                 self.draft_model = AutoModelForCausalLM.from_pretrained(
-                    self.args.draft_models_dir[self.local_rank],
-                    device_map=f"cuda:{self.local_rank}",
+                    self.args.draft_models_dir[self.accelerator.local_process_index],
+                    # device_map={"": self.accelerator.device},  # 关键修改
+                    device_map={"": self.accelerator.device},  # 显式指定GPU索引
                     torch_dtype=torch.bfloat16,
-                    trust_remote_code=True,
+                    trust_remote_code=True
                 ).eval()
                 if self.local_rank == 0:
                     self.is_smallest_drafter = True
+
+            else:
+                # Target 模型：自动分片到剩余 GPU
+                target_gpus = list(range(num_drafters, num_total_gpus))
+                self.color_print(f"Loading models:{self.args.target_model_dir}\n", 2)
+                self.target_model = AutoModelForCausalLM.from_pretrained(
+                    self.args.target_model_dir,
+                    device_map="auto",
+                    max_memory={gpu: "32GiB" for gpu in target_gpus},
+                    torch_dtype=torch.bfloat16,
+                    trust_remote_code=True
+                ).eval()
+                self.is_target_model = True
+                # 验证设备位置（调试用）
+                if self.accelerator.local_process_index < num_drafters:
+                    params = list(self.draft_model.parameters())
+                    assert all(p.device == self.accelerator.device for p in params), "Draft 模型设备错位！"
+                else:
+                    print(f"Target 模型设备映射: {self.target_model.hf_device_map}")
 
     def load_tokenizer(self):
         # * load tokenizers
@@ -96,8 +120,8 @@ class Decoding(ABC):
 
     def color_print(self, content: str, color_number: int = 4):
         """print content with color. Some color numbers are listed: Gray: 0, Red: 1, Green: 2, Yellow: 3, Blue: 4."""
-        if self.accelerator.is_main_process:
-            print(f"\033[9{color_number}m{content}\033[0m")
+        # if self.accelerator.is_main_process:
+        print(f"\033[9{color_number}m{content}\033[0m")
 
     @abstractmethod
     def load_data(self):
@@ -157,8 +181,8 @@ class Decoding(ABC):
             tokens_id =drafter_cache.generate(prefix.to(draft_device), self.branch_prediction_num)
             _ = target_model_cache.generate(tokens_id.to(target_device), 1)
             if self.accelerator.is_main_process:
-                self.target_forward_time += 1
-                self.draft_forward_time[self.args.draft_models_dir[0]] += self.branch_prediction_num
+                self.target_forward_times += 1
+                self.draft_forward_times[self.args.draft_models_dir[0]] += self.branch_prediction_num
 
             n = prefix_len +self.branch_prediction_num - 1
             # 进行验证
@@ -204,12 +228,10 @@ class Decoding(ABC):
     def parallel_speculative_decoding(self, prefix: torch.Tensor) -> torch.Tensor:
         # parallel speculative decoding todo 修改成多机环境
         if self.is_target_model:
-            model = KVCacheModel(self.target_model, self.temperature, self.top_k, self.top_p, self.vocab_size)
-            device = self.target_model.device
+            model = KVCacheModel(self.target_model, self.temperature, self.top_k, self.top_p, self.vocab_size).to(self.device)
         else:
-            model = KVCacheModel(self.draft_model, self.temperature, self.top_k, self.top_p, self.vocab_size)
-            device = self.draft_model.device
-
+            model = KVCacheModel(self.draft_model, self.temperature, self.top_k, self.top_p, self.vocab_size).to(self.device)
+        prefix.to(self.device)
         max_tokens = prefix.shape[1] + self.max_tokens
         # state[0] 的值表示 sender 的 accelerate.rank
         # state[0]: needs to be updated, transfered by other bigger drafters or target model
@@ -224,17 +246,24 @@ class Decoding(ABC):
         while prefix.shape[1] < max_tokens:
             prefix_len = prefix.shape[1]
             input_ids = prefix.to(self.accelerator.device)
+            self.color_print(f"开始执行{self.local_rank}",self.local_rank)
             if self.is_smallest_drafter:
                 # 有两个接受的req 一个是 target model ，一个是比他大一个rank 的model
                 if len(req_list) == 0:  # 第一次推理
                     # 创建两个req 分别接受 target model 和 bigger one
                     # todo 要判断 if self.drafter_num  > 2, if not create one req should be enough
+                    self.color_print(f"进入{self.local_rank}", self.local_rank)
+                    print(f"dist.Backend.NCCL:{dist.get_backend()}")
                     req_target_model = dist.irecv(tokens_cache_req0, self.drafters_num, tag=Config.RECEIVE_TOKENS)
+                    print(tokens_cache_req0)
                     req_next_model = dist.irecv(tokens_cache_req1, self.local_rank + 1, tag=Config.RECEIVE_TOKENS)
+
                     req_list.append(req_target_model)
                     req_list.append(req_next_model)
 
                     prefix = model.generate(input_ids, 1)
+                    self.color_print(f"{self.device}: generate{prefix}",self.local_rank)
+                    self.draft_forward_times += 1
                 else: # 不是第一次推理
                     if req_list[0].is_completed():
                         # target model notice: 2 cases
@@ -252,6 +281,8 @@ class Decoding(ABC):
                         self.pending_verified_len = prefix_len
                         # branch_prediction
                         prefix = model.generate(input_ids, Config.PREDICTION_NUM)
+                        self.color_print(f"{self.device}: generate {prefix}", 1)
+                        self.draft_forward_times += Config.PREDICTION_NUM
                         dist.isend(prefix, self.target_model_rank, tag=Config.SEND_TOKENS)
                         dist.isend(prefix, self.local_rank + 1, tag=Config.SEND_TOKENS)
                         req_list[0] = dist.irecv(tokens_cache_req0, self.drafters_num, tag=Config.RECEIVE_TOKENS)
@@ -274,6 +305,8 @@ class Decoding(ABC):
 
                     # 进行正常推理
                     prefix = model.generate(input_ids, 1)
+                    self.color_print(f"{self.device}: generate{prefix}",1)
+                    self.draft_forward_times += 1
 
             elif self.is_target_model:
 
@@ -281,6 +314,8 @@ class Decoding(ABC):
                     # 第一次推理
                     # 直接生成 tokens, 更新 prefix
                     prefix = model.generate(input_ids, 1)
+                    self.color_print(f"{self.device}: generate{prefix}",2)
+                    self.target_forward_times += 1
                     self.verified_len = prefix.shape[1]
 
                 else:
@@ -308,6 +343,7 @@ class Decoding(ABC):
                     prefix = tokens_cache_req0[:,:].clone()
                     # 目前只支持 batch_size = 1
                     pending_verification_tokens_id=model.generate(prefix,1)[0]
+                    self.color_print(f"{self.device}: generate{prefix}",2)
                     # 进行greedy decoding验证
                     # 总共验证的 tokens 的个数为： predicted_len - prefix_len
                     # acc_token = 0
@@ -339,19 +375,24 @@ class Decoding(ABC):
                 if self.verified_len == 0:
                     # 第一次推理
                     self.verified_len = prefix_len
-                    req_target_model = dist.irecv(tokens_cache_req0, self.drafters_num, tag=Config.RECEIVE_TOKENS)
-                    req_list.append(req_target_model)
-                    if self.local_rank + 1 < self.drafters_num:
-                        req_next_model = dist.irecv(tokens_cache_req1, self.local_rank + 1, tag=Config.RECEIVE_TOKENS)
-                        req_list.append(req_next_model)
+                    if self.local_rank + 1 == self.drafters_num:
+                        req_target_model = dist.irecv(tokens_cache_req0, self.drafters_num, tag=Config.RECEIVE_TOKENS)
+                        req_list.append(req_target_model)
+
+                    req_next_model = dist.irecv(tokens_cache_req1, self.local_rank + 1, tag=Config.RECEIVE_TOKENS)
+                    req_list.append(req_next_model)
+
                     prefix = model.generate(input_ids, 1)
+                    self.color_print(f"{self.device}: generate: {prefix}",3)
+                    self.target_forward_times += 1
+
                 else:
                     # 不是第一次推理
                     # 通知上层 model 发送 cache 给 target model 查询 cache
                     # 如果能够携带 candidiates 进行推理就携带，不能就直接进行推理
 
                     # 首先查看 target model 有没有通知更新
-                    if req_list[0].is_completed():
+                    if self.local_rank != self.drafters_num-1 and req_list[0].is_completed():
                         prefix = tokens_cache_req0[:, :].clone()
                         prefix_len = prefix.shape[1]
                         # 全部接受 -》 不会 进行更新
@@ -361,6 +402,8 @@ class Decoding(ABC):
                         self.pending_verified_len = prefix_len
                         # 直接进行 generate
                         model.generate(prefix, 1)
+                        self.color_print(f"{self.device}: generate{prefix}", 3)
+                        self.draft_forward_times += 1
                         req_list[0] = dist.irecv(tokens_cache_req0, self.target_model_rank, tag=Config.RECEIVE_TOKENS)
                         continue
                     if req_list[1].is_completed():
@@ -388,9 +431,14 @@ class Decoding(ABC):
                     if cache_len <= prefix_len:
                         # 不携带 cache 推理
                         model.generate(prefix, 1)
+                        self.color_print(f"{self.device}: generate{prefix}", 3)
+                        self.draft_forward_times += 1
+
                     else: # cache 命中 携带 cache 进行推理
                         prefix = tokens_cache_req1[:, :cache_len].clone()
                         pending_verification_tokens_id = model.generate(prefix, 1)
+                        self.color_print(f"{self.device}: generate{prefix}", 3)
+                        self.draft_forward_times += 1
                         # 进行 greedy decoding 验证
                         # 优化为批量比较
                         candidates = pending_verification_tokens_id[:, prefix_len:cache_len]

@@ -1,14 +1,12 @@
 import torch
 from .util import norm_logits, sample, batch_norm_logits, greedy_sample
+import torch.nn as nn
 
 
-class KVCacheModel():
-    def __init__(self,
-                 model: torch.nn.Module,
-                 temperature: float = 1,
-                 top_k: int = 0,
-                 top_p: float = 0,
-                 vocab_size: int = None) -> None:
+class KVCacheModel(nn.Module):
+    def __init__(self, model: torch.nn.Module, temperature: float = 1, top_k: int = 0, top_p: float = 0,
+                 vocab_size: int = None, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
         self._model = model
         self._past_key_values = None
         # 保存seq中每一个tokens的logits 用于后续的验证
@@ -22,6 +20,7 @@ class KVCacheModel():
     @torch.no_grad()
     def generate(self, input: torch.Tensor, branch_prediction_num: int) -> torch.Tensor:
         tokens_id = self._generate_some_tokens_with_kvcache(input, branch_prediction_num)
+
         return tokens_id
 
     def _generate_some_tokens_with_kvcache(self,
@@ -38,7 +37,6 @@ class KVCacheModel():
 
         for _ in range(branch_prediction_num):
             last_q = self._forward_with_kvcache(tokens_id)
-
             if sample_method=='greedy':
                 next_token_id = greedy_sample(last_q)
             elif sample_method=='sample':
@@ -61,7 +59,10 @@ class KVCacheModel():
     def _forward_with_kvcache(self, input_ids: torch.Tensor) -> torch.Tensor:
         # 第一次推理没有保存kvcache ，此时调用forward
         if self._past_key_values is None:
+            # todo cuda 1 执行不完这句话
             outputs = self._model(input_ids)
+            print("forward_with kv cache")
+
             # logit shape is (batch_size, sequence_length, vocab_size)
             # todo 等价于 self.prob_history = outputs.logits
             self.prob_history = outputs.logits[:, :, :self._vocab_size]

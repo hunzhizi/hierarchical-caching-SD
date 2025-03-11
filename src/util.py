@@ -20,18 +20,24 @@ def model_map(args):
     vocab_size = {
     "Qwen2.5-0.5B-Instruct": 151936,
     "Qwen2.5-1.5B-Instruct": 151936,
+    "Qwen2.5-7B-Instruct": 151936,
 
     }
+    # model_dir_map = {
+    #     "Qwen2.5-1.5B-Instruct": "D:\\model\\Qwen2.5-1.5B-Instruct",
+    #     "Qwen2.5-0.5B-Instruct": "D:\\model\\Qwen2.5-0.5B-Instruct",
+    # }
     model_dir_map = {
-        "Qwen2.5-1.5B-Instruct": "D:\\model\\Qwen2.5-1.5B-Instruct",
-        "Qwen2.5-0.5B-Instruct": "D:\\model\\Qwen2.5-0.5B-Instruct",
+        "Qwen2.5-7B-Instruct": "/root/autodl-tmp/model/Qwen2.5-7B-Instruct",
+        "Qwen2.5-1.5B-Instruct": "/root/autodl-tmp/model/Qwen2.5-1.5B-Instruct",
+        "Qwen2.5-0.5B-Instruct": "/root/autodl-tmp/model/Qwen2.5-0.5B-Instruct",
     }
     # set vocab size and
     # caution: all the models' vocab size should be the same
     args.vocab_size = vocab_size[args.draft_models[0]]
     args.draft_models_dir = [model_dir_map[model_name] for model_name in args.draft_models]
     args.target_model_dir = model_dir_map[args.target_model]
-    if args.model_name is not None:
+    if args.model_name is not None and args.model_name != "":
         # 作为 target model 进行测试
         print(f"args.model is {args.model_name}")
         args.target_model_dir = model_dir_map[args.model_name]
@@ -44,14 +50,14 @@ def parse_arguments():
     parser.add_argument('--data_path', type=str, default="../data")
 
     parser.add_argument('--draft_models', type=str, nargs='+', default=["Qwen2.5-0.5B-Instruct"])
-    parser.add_argument('--target_model', type=str, default="Qwen2.5-1.5B-Instruct")
+    parser.add_argument('--target_model', type=str, default="Qwen2.5-7B-Instruct")
 
     parser.add_argument('--exp_name', '-e', type=str, default="test", help='folder name for storing results.')
     # 实验相关
     # todo add more eval mode
     parser.add_argument('--eval_mode', type=str, default="default",
                         choices=["default","single_model","small", "large", "sd", "para_sd", "para_sd_wo_1", "para_sd_wo_2"], help='eval mode.')
-    parser.add_argument("--model_name", type=str, default="Qwen2.5-1.5B-Instruct",
+    parser.add_argument("--model_name", type=str, default="",
                         help="when '--eval_mode' is single_model ,use this to specify the model name.")
 
     parser.add_argument('--num_samples_per_task', '-n', type=int, default=1,

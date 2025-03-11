@@ -4,7 +4,8 @@ from src.Decoding import Decoding
 from src.util import parse_arguments
 import torch
 from time import perf_counter
-
+import sys
+import os
 
 class TestModel(Decoding):
     def __init__(self, args):
@@ -13,6 +14,7 @@ class TestModel(Decoding):
         self.load_tokenizer()
         self.load_data()
         self.load_model()
+        self.accelerator.wait_for_everyone()
 
     def load_data(self):
         pass
@@ -50,12 +52,10 @@ def test_single_model():
 
 def test_speculative_decoding():
     args = parse_arguments()
-    args.eval_mode = "default"
+    # args.eval_mode = "default"
     test_model = TestModel(args)
     test_model.eval()
-    print(test_model.tokenizer.decode(token_ids=[4814, 498, 3291, 752, 264, 3364, 911, 264, 879, 879,
-                                                 374, 264, 44159, 807, 807, 525, 4460]))
-# todo 应该是回滚相关逻辑出现问题
+
 
 if __name__ == '__main__':
 
