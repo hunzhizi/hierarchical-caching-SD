@@ -31,6 +31,7 @@ def model_map(args):
         "Qwen2.5-7B-Instruct": "/root/autodl-tmp/model/Qwen2.5-7B-Instruct",
         "Qwen2.5-1.5B-Instruct": "/root/autodl-tmp/model/Qwen2.5-1.5B-Instruct",
         "Qwen2.5-0.5B-Instruct": "/root/autodl-tmp/model/Qwen2.5-0.5B-Instruct",
+        "Qwen2.5-14B-Instruct-2": ...,
     }
     # set vocab size and
     # caution: all the models' vocab size should be the same
