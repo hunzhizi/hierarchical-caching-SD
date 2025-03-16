@@ -2,4 +2,6 @@ class Config():
     RECEIVE_TOKENS = 0
     SEND_TOKENS = 0
     UPDATE_STATE = 1
-    PREDICTION_NUM = 3
+    PREDICTION_NUM = 2
+    MODEL_NUM = 3
+    MAX_LEN = 2048

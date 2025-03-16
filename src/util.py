@@ -50,7 +50,7 @@ def parse_arguments():
     parser.add_argument('--data_path', type=str, default="../data")
 
     parser.add_argument('--draft_models', type=str, nargs='+', default=["Qwen2.5-0.5B-Instruct"])
-    parser.add_argument('--target_model', type=str, default="Qwen2.5-7B-Instruct")
+    parser.add_argument('--target_model', type=str, default="Qwen2.5-1.5B-Instruct")
 
     parser.add_argument('--exp_name', '-e', type=str, default="test", help='folder name for storing results.')
     # 实验相关
@@ -78,6 +78,9 @@ def parse_arguments():
     args.exp_name = os.path.join(os.getcwd(), "exp", args.exp_name)
     os.makedirs(args.exp_name, exist_ok=True)
     model_map(args)
+    args.rank = int(os.environ["RANK"])  # 自动从环境变量获取
+    args.world_size = int(os.environ["WORLD_SIZE"])
+    args.local_rank = int(os.environ["LOCAL_RANK"])
     return args
 
 

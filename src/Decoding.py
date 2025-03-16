@@ -158,7 +158,7 @@ class Decoding(ABC):
                 if last_ids.dim() == 1:
                     last_ids = last_ids.unsqueeze(0)
                 outputs = model(last_ids, past_key_values=past_key_values, use_cache=True)
-            self.target_forward_time += 1
+            self.target_forward_times += 1
 
             last_p = norm_logits(outputs.logits[:, -1, :], self.temperature, self.top_k, self.top_p)
             past_key_values = outputs.past_key_values
