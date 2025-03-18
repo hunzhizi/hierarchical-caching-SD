@@ -4,6 +4,7 @@ from src.Decoding import Decoding
 from src.util import parse_arguments
 import torch
 from time import perf_counter
+import torch.distributed as dist
 import sys
 import os
 

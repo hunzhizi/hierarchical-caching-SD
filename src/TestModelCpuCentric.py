@@ -1,5 +1,6 @@
 import time
 
+from src.Config import Config
 from src.DecodingCpuCentric import DecodingCpuCentric
 from src.util import parse_arguments
 import torch
@@ -35,10 +36,15 @@ class TestModelCpuCentric(DecodingCpuCentric):
         start = perf_counter()
         generate_ids = decoding(input_ids)
         end = perf_counter()
+        # 通知其他模型结束运行
+        # self.terminate_tensor = torch.tensor([1], dtype=torch.int)
+        # dist.isend(self.terminate_tensor, dst=0)
         if self.is_target_model:
             print(f"精确耗时：{(end - start) * 1000:.3f} 毫秒")
             generate_ids = self.tokenizer.decode(generate_ids.squeeze())
             print(f"generate_ids: {generate_ids}")
+            dist.send(torch.tensor([self.rank],dtype=torch.int),dst=0, tag=Config.END_FLAG)
+            dist.destroy_process_group()
 
     def postprocess(self, input_text, output_text):
         pass

@@ -43,10 +43,10 @@ def gpu_main(rank, world_size):
     # model = torch.nn.Linear(10, 10).to(device)
 
     # 双缓冲机制
-    buffer = torch.full((1, Config.MAX_LEN), -1, dtype=torch.long)
+    buffer = torch.full((1, Config.BUFFER_SIZE), -1, dtype=torch.long)
     step = 1
     seq_len = 1
-    fake_output = torch.zeros(Config.MAX_LEN, dtype=torch.long).unsqueeze(0)
+    fake_output = torch.zeros(Config.BUFFER_SIZE, dtype=torch.long).unsqueeze(0)
     fake_output.fill_(-1)
     while True:
         # 使用前缓冲区数据进行推理

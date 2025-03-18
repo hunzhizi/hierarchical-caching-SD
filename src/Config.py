@@ -1,7 +1,6 @@
 class Config():
-    RECEIVE_TOKENS = 0
-    SEND_TOKENS = 0
-    UPDATE_STATE = 1
     PREDICTION_NUM = 2
     MODEL_NUM = 3
-    MAX_LEN = 500
+    MAX_LEN = 1000
+    BUFFER_SIZE = MAX_LEN + 50
+    END_FLAG = 10

@@ -71,6 +71,8 @@ class DecodingCpuCentric(ABC):
         self.verified_len = 0
         self.pending_verified_len = 0
 
+        self.terminate_tensor = torch.tensor([0], dtype=torch.int)
+
     def load_model(self):
         # load models according to different evaluation methods.
         if self.args.eval_mode in ["default", "sd"]:
@@ -250,9 +252,18 @@ class DecodingCpuCentric(ABC):
     def cpu_main(self):
         manager = CacheManager(self.world_size)
         manager.start()
-        while True:
-            time.sleep(100)
-        #     print(f"[CPU] Current table size: {len(manager.table)}")
+        work = dist.irecv(tensor=self.terminate_tensor, src=self.world_size-1,tag=Config.END_FLAG)
+        # work = dist.irecv(tensor=self.terminate_tensor, src=self.world_size-1,tag=Config.END_FLAG)
+        # work = dist.irecv(tensor=self.terminate_tensor, src=self.world_size-1,tag=Config.END_FLAG)
+
+        work.wait()
+        manager.terminate_flag.append(self.terminate_tensor.item())
+        dist.recv(tensor=self.terminate_tensor, src=self.world_size - 2, tag=Config.END_FLAG)
+        manager.terminate_flag.append(self.terminate_tensor.item())
+        dist.recv(tensor=self.terminate_tensor, src=self.world_size - 3, tag=Config.END_FLAG)
+        manager.terminate_flag.append(self.terminate_tensor.item())
+        dist.destroy_process_group()
+
 
 
     @torch.no_grad()
@@ -267,16 +278,15 @@ class DecodingCpuCentric(ABC):
 
         max_tokens = Config.MAX_LEN
         if not self.is_target_model:
-            max_tokens += 50
+            max_tokens += 20
 
         # 创建通讯缓冲区
-        recv_buffer = torch.full((1, Config.MAX_LEN), -1, dtype=torch.long, device='cpu')
+        recv_buffer = torch.full((1, Config.BUFFER_SIZE), -1, dtype=torch.long, device='cpu')
         # 记录推理次数
         step: int = 0
         seq_len: int = 0
         # 统一向CPU发送数据
         dst = 0
-        # while seq_len < max_tokens - 30:
         while seq_len < max_tokens:
             if seq_len == 0:
                 # 直接进行推理
@@ -349,7 +359,8 @@ class DecodingCpuCentric(ABC):
         if self.is_target_model:
             return prefix
         else:
-            return None
+            dist.send(tensor=torch.tensor(self.rank),tag=Config.END_FLAG,dst=0)
+            dist.destroy_process_group()
 
 
 

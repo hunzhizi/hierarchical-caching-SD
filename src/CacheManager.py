@@ -1,15 +1,13 @@
 import torch
 import threading
 import torch.distributed as dist
-from conda.notices import notices
-
 from src.Config import Config
 from src.Notice import Notice
 from typing import List
 
 
 class CacheManager:
-    def __init__(self, world_size,max_len = Config.MAX_LEN):
+    def __init__(self, world_size, max_len = Config.BUFFER_SIZE):
         self.world_size = world_size
         self.lock = threading.Lock()
         self.recv_threads = []
@@ -17,6 +15,7 @@ class CacheManager:
         self.max_len: int = max_len
         self.notices: List[Notice] = [Notice(max_len) for i in range(world_size + 1)]
         self.global_condition = threading.Condition()  # 全局条件变量
+        self.terminate_flag: list = list()
 
 
     def start(self):
@@ -36,7 +35,7 @@ class CacheManager:
         """处理指定GPU进程的通信"""
         notice = self.notices[src]
         new_tokens = 0
-        while True:
+        while src not in self.terminate_flag:
             # 清空 recv_cache 和 update_cache
             notice.recv_cache.fill_(-1)
             # notice.update_cache.fill_(-1)
@@ -46,10 +45,7 @@ class CacheManager:
             work = dist.irecv(tensor=notice.recv_cache, src=src)
             # 在这里对 update cache 进行健壮性检查
             with notice.lock:
-                if notice.is_update:
-                    print(f"len(notice.update_cache) is {len(notice.update_cache[0])}")
-                    print(
-                        f"self.find_first_diff_index(notice.input_ids, notice.update_cache) is {self.find_first_diff_index(notice.input_ids, notice.update_cache)}")
+                pass
 
             # notice.is_update = False
 
@@ -83,9 +79,9 @@ class CacheManager:
                 # 查询上一层model 的cache
                 last_notice = self.notices[src - 1]
                 with last_notice.lock:
-                    cache_len = self.find_first_diff_index(last_notice.input_ids, notice.recv_cache)
+                    first_diff_index = self.find_first_diff_index(last_notice.input_ids, notice.recv_cache)
                 send_token_ids = last_notice.input_ids
-                if cache_len < prefix_len:
+                if first_diff_index < prefix_len:
                     # cache 未命中，通知其他模型更新
                     # 注意要从大到小进行通知，否则会出现线程安全问题
                     for i in range(self.world_size-1, 0, -1):
@@ -128,10 +124,9 @@ class CacheManager:
 
                 # 查询上一层model 的cache
                 last_notice = self.notices[src - 1]
-                cache_len = self.find_first_diff_index(last_notice.input_ids, notice.recv_cache)
-                if cache_len < prefix_len:
+                first_diff_index = self.find_first_diff_index(last_notice.input_ids, notice.recv_cache)
+                if first_diff_index < prefix_len:
                     # cache 未命中，通知其他模型更新
-                    print(f"线程{src}发送数据121 {notice.recv_cache[0][:30]}")
                     dist.send(tensor=notice.recv_cache, dst=src)
                     notice.input_ids = notice.recv_cache.clone()
                     with notice.lock:
@@ -144,17 +139,17 @@ class CacheManager:
                                         self.notices[i].update_cache = notice.recv_cache.clone()
                 else:
                     # 命中
-                    print(f"134线程{src}发送数据 {notice.input_ids[0][:30]}")
                     dist.send(tensor=last_notice.input_ids, dst=src)
                     notice.input_ids = last_notice.input_ids.clone()
 
-
     def get_truncate_input_ids_len(self, tensor: torch.Tensor) -> int:
         row = tensor[0]
-        # 方法 2：使用 nonzero 查找位置
         indices = (row == -1).nonzero(as_tuple=True)[0]
-        index = indices[0] if len(indices) > 0 else row.size(0)
-        return index.item()
+        # 返回值统一处理为 Python int
+        if len(indices) > 0:
+            return indices[0].item()  # Tensor 转 int
+        else:
+            return row.size(0)  # 直接返回 int
 
     def find_first_diff_index(self,
                               a: torch.Tensor,
