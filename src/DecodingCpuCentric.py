@@ -315,6 +315,7 @@ class DecodingCpuCentric(ABC):
                     if index != seq_len or index == input_ids.shape[1]:
                         # 如果 recv_buffer 和 send_buffer 完全相同 则index == Config.MAX_LEN，此时没有携带candidates
                         # 1. 没有携带 candidates 直接进行推理
+                        # self.color_print(f"收到的用于推理的tokens \n {input_ids} \n {self.tokenizer.decode(input_ids[0].tolist())} \n", self.local_rank)
                         prefix = model.generate(input_ids, 1)
                         seq_len = prefix.shape[1]
                     else:# 2.携带 candidates 推理后需要进行验证
@@ -325,8 +326,9 @@ class DecodingCpuCentric(ABC):
                         self.color_print(f'seq_len is {seq_len}', self.local_rank)
                         self.color_print(f"pending_verification_tokens_id shape[1] is {pending_verification_tokens_id.shape}", self.local_rank)
                         candidates = pending_verification_tokens_id[:, seq_len:-1]
-                        predicted: torch.Tensor = model.prob_history[:, seq_len:, :self.vocab_size].argmax(
+                        predicted: torch.Tensor = model.prob_history[:, seq_len - 1:, :self.vocab_size].argmax(
                             dim=-1)
+                        candidates = torch.hstack([candidates, predicted[:, -1:]])
                         self.color_print(f"predicted is {predicted}", self.local_rank)
                         self.color_print(f"candidates is {candidates}", self.local_rank)
                         verified = (predicted == candidates).all(dim=1)  # 检查所有Token是否匹配
@@ -336,19 +338,12 @@ class DecodingCpuCentric(ABC):
                             mismatch_pos = (predicted != candidates).nonzero(as_tuple=True)[1].min()
                             acc_token = mismatch_pos.item()
                         # 如果没有全部接受，模型回滚,
+                        self.color_print(f"acc_token is {acc_token}")
                         if acc_token < cache_len - seq_len:
-                            model.rollback(seq_len + acc_token + 1)
+                            model.rollback(seq_len + acc_token )
 
-                            # 更新 seq_len 和 prefix
-                            prefix = torch.cat([prefix,
-                                                predicted[:, seq_len:seq_len+acc_token + 1] ],
-                                               dim=1)
-                        else:
-                            # 全部接受
-                            # sample 出一个token
-                            t = greedy_sample(model.prob_history[:, seq_len + acc_token - 1, :self.vocab_size])
-                            prefix = torch.cat([prefix, pending_verification_tokens_id[:, seq_len:], t], dim=1)
-
+                        # 更新 prefix
+                        prefix = torch.cat([prefix,predicted[:, :acc_token + 1 ]],dim=-1)
                         seq_len += acc_token + 1
 
         if self.is_target_model:

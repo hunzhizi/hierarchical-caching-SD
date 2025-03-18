@@ -39,20 +39,37 @@ class CacheManager:
         while True:
             # 清空 recv_cache 和 update_cache
             notice.recv_cache.fill_(-1)
-            notice.update_cache.fill_(-1)
+            # notice.update_cache.fill_(-1)
 
             # 接收token数据
             token_ids = notice.recv_cache
-            dist.recv(tensor=notice.recv_cache, src=src)
+            work = dist.irecv(tensor=notice.recv_cache, src=src)
+            # 在这里对 update cache 进行健壮性检查
+            with notice.lock:
+                if notice.is_update:
+                    print(f"len(notice.update_cache) is {len(notice.update_cache[0])}")
+                    print(
+                        f"self.find_first_diff_index(notice.input_ids, notice.update_cache) is {self.find_first_diff_index(notice.input_ids, notice.update_cache)}")
+
+            # notice.is_update = False
+
+            work.wait()
             prefix_len = self.get_truncate_input_ids_len(notice.recv_cache)
-            print(f"线程{src}接受数据 {notice.recv_cache}, prefix_len is {prefix_len}")
             if src == 1:
                 # smallest model, check notice to update
                 with notice.lock:
+                    if self.find_first_diff_index(notice.recv_cache,notice.update_cache) == self.get_truncate_input_ids_len(notice.update_cache):
+                        notice.is_update = False
+                        notice.update_cache.fill_(-1)
+
                     if notice.is_update:
+                        print(f"len(notice.update_cache) is {self.get_truncate_input_ids_len(notice.update_cache)}")
+                        print(f"self.find_first_diff_index(notice.recv_cache, notice.update_cache) is {self.find_first_diff_index(notice.recv_cache, notice.update_cache)}")
+
                         dist.send(tensor=notice.update_cache, dst=src)
                         notice.input_ids = notice.update_cache.clone()
                         notice.is_update = False
+                        notice.update_cache.fill_(-1)
                         new_tokens = 0
                     else:
                         dist.send(tensor=notice.recv_cache, dst=src)
@@ -75,38 +92,46 @@ class CacheManager:
                         with self.notices[i].lock:
                             self.notices[i].is_update = True
                             self.notices[i].update_cache = notice.recv_cache.clone()
+                            print(f"target model 更新 {i} 号模型 tensor: {self.notices[i].update_cache[0][:30]}")
                     # Condition或事件代替忙等待，例如在更新input_ids后通知等待的线程。
                     with self.global_condition:
-                        while True:
-                            with self.notices[1].lock:
-                                current_cache_len = self.find_first_diff_index(self.notices[1].input_ids, notice.recv_cache)
-                            if current_cache_len == prefix_len:
-                                break
-                            self.global_condition.wait()
+                        # while True:
+                        #     with self.notices[1].lock:
+                        #         current_cache_len = self.find_first_diff_index(self.notices[1].input_ids, notice.recv_cache)
+                        #     if current_cache_len == prefix_len and len(self.notices[1].input_ids) > prefix_len:
+                        #         break
+                        self.global_condition.wait()
                     send_token_ids = self.notices[1].input_ids
                 dist.send(tensor=send_token_ids, dst=src)
 
             else:
                 # middle model, check notice to update
                 # 查看自己是否需要更新
-                if notice.is_update:
-                    # 这里update 可能是 bigger model 发过来的
-                    # todo在阶梯更高的模型层级中打开测试 取更小模型来加速推理，注意：这个一定要更小模型执行速度 为 当前模型2倍数以上，否则会出bug
-                    # with self.notices[1].lock:
-                        # if self.get_truncate_input_ids_len(self.notices[1].input_ids) > self.get_truncate_input_ids_len(notice.update_cache):
-                        #     dist.send(tensor=self.notices[1].input_ids, dst=src)
-                        # else:
-                        #     dist.send(tensor=notice.update_cache, dst=src)
-                    dist.send(tensor=notice.update_cache, dst=src)
-                    notice.input_ids = notice.update_cache.clone()
-                    notice.is_update = False
-                    continue
+                with notice.lock:
+                    if self.find_first_diff_index(notice.recv_cache,notice.update_cache) == self.get_truncate_input_ids_len(notice.update_cache):
+                        notice.is_update = False
+                        notice.update_cache.fill_(-1)
+                    if notice.is_update:
+                        # 这里update 可能是 bigger model 发过来的
+                        # todo在阶梯更高的模型层级中打开测试 取更小模型来加速推理，注意：这个一定要更小模型执行速度 为 当前模型2倍数以上，否则会出bug
+                        # with self.notices[1].lock:
+                            # if self.get_truncate_input_ids_len(self.notices[1].input_ids) > self.get_truncate_input_ids_len(notice.update_cache):
+                            #     dist.send(tensor=self.notices[1].input_ids, dst=src)
+                            # else:
+                            #     dist.send(tensor=notice.update_cache, dst=src)
+
+                        dist.send(tensor=notice.update_cache, dst=src)
+                        notice.input_ids = notice.update_cache.clone()
+                        notice.is_update = False
+                        notice.update_cache.fill_(-1)
+                        continue
 
                 # 查询上一层model 的cache
                 last_notice = self.notices[src - 1]
                 cache_len = self.find_first_diff_index(last_notice.input_ids, notice.recv_cache)
                 if cache_len < prefix_len:
                     # cache 未命中，通知其他模型更新
+                    print(f"线程{src}发送数据121 {notice.recv_cache[0][:30]}")
                     dist.send(tensor=notice.recv_cache, dst=src)
                     notice.input_ids = notice.recv_cache.clone()
                     with notice.lock:
@@ -119,6 +144,7 @@ class CacheManager:
                                         self.notices[i].update_cache = notice.recv_cache.clone()
                 else:
                     # 命中
+                    print(f"134线程{src}发送数据 {notice.input_ids[0][:30]}")
                     dist.send(tensor=last_notice.input_ids, dst=src)
                     notice.input_ids = last_notice.input_ids.clone()
 

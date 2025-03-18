@@ -4,4 +4,4 @@ class Config():
     UPDATE_STATE = 1
     PREDICTION_NUM = 2
     MODEL_NUM = 3
-    MAX_LEN = 2048
+    MAX_LEN = 500
