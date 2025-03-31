@@ -299,7 +299,7 @@ class DecodingCpuCentric(ABC):
                 # decoding 过程
                 # 先对 prefix 进行处理，然后进行通讯
                 # currently only supports batch_size = 1
-                self.color_print(f"\nrank{self.rank}向CacheManager发请求: \n {prefix} \n {self.tokenizer.decode(prefix[0].tolist())} \n", self.local_rank)
+                # self.color_print(f"\nrank{self.rank}向CacheManager发请求: \n {prefix} \n {self.tokenizer.decode(prefix[0].tolist())} \n", self.local_rank)
                 send_buffer = prefix
                 send_message = send_buffer.cpu()
                 recv_message = recv_buffer.cpu()
@@ -309,7 +309,7 @@ class DecodingCpuCentric(ABC):
                 send_buffer = send_message.to(self.device)
                 recv_buffer = recv_message.to(self.device)
                 input_ids = self.truncate_tensor(recv_buffer)
-                self.color_print(f"收到的用于推理的tokens \n {input_ids} \n {self.tokenizer.decode(input_ids[0].tolist())} \n", self.local_rank)
+                # self.color_print(f"收到的用于推理的tokens \n {input_ids} \n {self.tokenizer.decode(input_ids[0].tolist())} \n", self.local_rank)
                 # 各个模型检查自己是否需要回滚
                 index = self.find_first_diff_index(recv_buffer, send_buffer)
                 if index < seq_len:
@@ -333,14 +333,14 @@ class DecodingCpuCentric(ABC):
                         pending_verification_tokens_id = model.generate(input_ids, 1)
                         cache_len:int = input_ids.shape[1]
                         # 进行验证
-                        self.color_print(f'seq_len is {seq_len}', self.local_rank)
-                        self.color_print(f"pending_verification_tokens_id shape[1] is {pending_verification_tokens_id.shape}", self.local_rank)
+                        # self.color_print(f'seq_len is {seq_len}', self.local_rank)
+                        # self.color_print(f"pending_verification_tokens_id shape[1] is {pending_verification_tokens_id.shape}", self.local_rank)
                         candidates = pending_verification_tokens_id[:, seq_len:-1]
                         predicted: torch.Tensor = model.prob_history[:, seq_len - 1:, :self.vocab_size].argmax(
                             dim=-1)
                         candidates = torch.hstack([candidates, predicted[:, -1:]])
-                        self.color_print(f"predicted is {predicted}", self.local_rank)
-                        self.color_print(f"candidates is {candidates}", self.local_rank)
+                        # self.color_print(f"predicted is {predicted}", self.local_rank)
+                        # self.color_print(f"candidates is {candidates}", self.local_rank)
                         verified = (predicted == candidates).all(dim=1)  # 检查所有Token是否匹配
                         if verified:
                             acc_token = cache_len - seq_len
@@ -348,9 +348,11 @@ class DecodingCpuCentric(ABC):
                             mismatch_pos = (predicted != candidates).nonzero(as_tuple=True)[1].min()
                             acc_token = mismatch_pos.item()
                         # 如果没有全部接受，模型回滚,
-                        self.color_print(f"acc_token is {acc_token}")
+                        # self.color_print(f"acc_token is {acc_token}")
                         if acc_token < cache_len - seq_len:
                             model.rollback(seq_len + acc_token )
+                        # if self.is_target_model:
+                        #     self.color_print(f"acc_token is {acc_token}", self.rank)
 
                         # 更新 prefix
                         prefix = torch.cat([prefix,predicted[:, :acc_token + 1 ]],dim=-1)

@@ -4,10 +4,16 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="19e9cf66-6f9b-4dcc-89d2-fbfa061f467a" name="Changes" comment="初步完成分层decoding">
+    <list default="true" id="19e9cf66-6f9b-4dcc-89d2-fbfa061f467a" name="Changes" comment="可以正确推理并错误结束，结束的代码可以后续更新">
+      <change beforePath="$PROJECT_DIR$/.idea/hierarchical-caching-SD.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/hierarchical-caching-SD.iml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/CacheManager.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/CacheManager.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/Config.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/Config.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/DecodingCpuCentric.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/DecodingCpuCentric.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/KVCacheModel.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/KVCacheModel.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/TestModel.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/TestModel.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/util.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/util.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -49,7 +55,9 @@
   "keyToString": {
     "Python.CacheManagerTest.executor": "Run",
     "Python.TestModel.executor": "Run",
+    "Python.TestModelCpuCentric.executor": "Run",
     "Python.multi_process.executor": "Run",
+    "Python.test_shared_memory.executor": "Run",
     "Python.util.executor": "Run",
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "RunOnceActivity.git.unshallow": "true",
@@ -67,7 +75,7 @@
     "node.js.selected.package.tslint": "(autodetect)",
     "nodejs_package_manager_path": "npm",
     "python.debugger.dataview.coloredbydefault": "false",
-    "settings.editor.selected.configurable": "com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable",
+    "settings.editor.selected.configurable": "ssh.settings",
     "vue.rearranger.settings.migration": "true"
   }
 }]]></component>
@@ -82,7 +90,7 @@
       <recent name="D:\homework\hierarchical-caching-SD\src" />
     </key>
   </component>
-  <component name="RunManager" selected="Python.CacheManagerTest">
+  <component name="RunManager" selected="Python.TestModel">
     <configuration name="CacheManagerTest" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="hierarchical-caching-SD" />
       <option name="ENV_FILES" value="" />
@@ -129,6 +137,29 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
+    <configuration name="TestModelCpuCentric" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="hierarchical-caching-SD" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/src" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/TestModelCpuCentric.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
     <configuration name="multi_process" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="hierarchical-caching-SD" />
       <option name="ENV_FILES" value="" />
@@ -152,7 +183,7 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="util" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+    <configuration name="test_shared_memory" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="hierarchical-caching-SD" />
       <option name="ENV_FILES" value="" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -161,12 +192,12 @@
         <env name="PYTHONUNBUFFERED" value="1" />
       </envs>
       <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/src" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/test" />
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
       <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/util.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/test/test_shared_memory.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -177,10 +208,11 @@
     </configuration>
     <recent_temporary>
       <list>
+        <item itemvalue="Python.TestModel" />
+        <item itemvalue="Python.TestModelCpuCentric" />
+        <item itemvalue="Python.test_shared_memory" />
         <item itemvalue="Python.CacheManagerTest" />
         <item itemvalue="Python.multi_process" />
-        <item itemvalue="Python.util" />
-        <item itemvalue="Python.TestModel" />
       </list>
     </recent_temporary>
   </component>
@@ -193,6 +225,11 @@
     </attachedChunks>
   </component>
   <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
+  <component name="SshConsoleOptionsProvider">
+    <option name="myEncoding" value="UTF-8" />
+    <option name="myConnectionType" value="NONE" />
+    <option name="myConnectionId" value="" />
+  </component>
   <component name="TaskManager">
     <task active="true" id="Default" summary="Default task">
       <changelist id="19e9cf66-6f9b-4dcc-89d2-fbfa061f467a" name="Changes" comment="" />
@@ -204,7 +241,7 @@
       <workItem from="1740903195657" duration="79658000" />
       <workItem from="1741691525253" duration="26007000" />
       <workItem from="1742048206079" duration="28573000" />
-      <workItem from="1742123847851" duration="33749000" />
+      <workItem from="1742123847851" duration="61544000" />
     </task>
     <task id="LOCAL-00001" summary="初版代码">
       <option name="closed" value="true" />
@@ -238,29 +275,58 @@
       <option name="project" value="LOCAL" />
       <updated>1742139547439</updated>
     </task>
-    <option name="localTasksCounter" value="5" />
+    <task id="LOCAL-00005" summary="待调试版本的 para_decoding">
+      <option name="closed" value="true" />
+      <created>1742279969543</created>
+      <option name="number" value="00005" />
+      <option name="presentableId" value="LOCAL-00005" />
+      <option name="project" value="LOCAL" />
+      <updated>1742279969543</updated>
+    </task>
+    <task id="LOCAL-00006" summary="可以正确推理并错误结束，结束的代码可以后续更新">
+      <option name="closed" value="true" />
+      <created>1742289369665</created>
+      <option name="number" value="00006" />
+      <option name="presentableId" value="LOCAL-00006" />
+      <option name="project" value="LOCAL" />
+      <updated>1742289369665</updated>
+    </task>
+    <option name="localTasksCounter" value="7" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
   </component>
+  <component name="Vcs.Log.Tabs.Properties">
+    <option name="TAB_STATES">
+      <map>
+        <entry key="MAIN">
+          <value>
+            <State />
+          </value>
+        </entry>
+      </map>
+    </option>
+  </component>
   <component name="VcsManagerConfiguration">
     <MESSAGE value="初版代码" />
     <MESSAGE value="初步完成分层decoding" />
-    <option name="LAST_COMMIT_MESSAGE" value="初步完成分层decoding" />
+    <MESSAGE value="待调试版本的 para_decoding" />
+    <MESSAGE value="可以正确推理并错误结束，结束的代码可以后续更新" />
+    <option name="LAST_COMMIT_MESSAGE" value="可以正确推理并错误结束，结束的代码可以后续更新" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
       <breakpoints>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/src/TestModel.py</url>
-          <line>34</line>
-          <option name="timeStamp" value="6" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/src/Decoding.py</url>
           <line>227</line>
           <option name="timeStamp" value="9" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/src/CacheManager.py</url>
+          <line>46</line>
+          <option name="timeStamp" value="10" />
         </line-breakpoint>
       </breakpoints>
     </breakpoint-manager>
@@ -276,7 +342,9 @@
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
     <SUITE FILE_PATH="coverage/hierarchical_caching_SD$util.coverage" NAME="util Coverage Results" MODIFIED="1740470318023" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/src" />
     <SUITE FILE_PATH="coverage/hierarchical_caching_SD$multi_process.coverage" NAME="multi_process Coverage Results" MODIFIED="1741880404412" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/src" />
+    <SUITE FILE_PATH="coverage/hierarchical_caching_SD$test_shared_memory.coverage" NAME="test_shared_memory Coverage Results" MODIFIED="1742542897888" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/test" />
+    <SUITE FILE_PATH="coverage/hierarchical_caching_SD$TestModelCpuCentric.coverage" NAME="TestModelCpuCentric Coverage Results" MODIFIED="1742555834211" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/src" />
     <SUITE FILE_PATH="coverage/hierarchical_caching_SD$CacheManagerTest.coverage" NAME="CacheManagerTest Coverage Results" MODIFIED="1741882951192" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/src" />
-    <SUITE FILE_PATH="coverage/hierarchical_caching_SD$TestModel.coverage" NAME="TestModel Coverage Results" MODIFIED="1741191330726" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/src" />
+    <SUITE FILE_PATH="coverage/hierarchical_caching_SD$TestModel.coverage" NAME="TestModel Coverage Results" MODIFIED="1742555845090" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/src" />
   </component>
 </project>

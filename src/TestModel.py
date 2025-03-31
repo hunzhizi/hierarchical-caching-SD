@@ -47,7 +47,9 @@ class TestModel(Decoding):
 
 def test_single_model():
     args = parse_arguments()
+    args.max_tokens = 1000
     args.eval_mode = "single_model"
+    args.target_model = "Qwen2.5-0.5B-Instruct"
     test_model = TestModel(args)
     test_model.eval()
 
@@ -60,5 +62,5 @@ def test_speculative_decoding():
 
 if __name__ == '__main__':
 
-    test_speculative_decoding()
-    # test_single_model()
+    # test_speculative_decoding()
+    test_single_model()

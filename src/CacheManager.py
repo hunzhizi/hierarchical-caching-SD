@@ -59,8 +59,8 @@ class CacheManager:
                         notice.update_cache.fill_(-1)
 
                     if notice.is_update:
-                        print(f"len(notice.update_cache) is {self.get_truncate_input_ids_len(notice.update_cache)}")
-                        print(f"self.find_first_diff_index(notice.recv_cache, notice.update_cache) is {self.find_first_diff_index(notice.recv_cache, notice.update_cache)}")
+                        # print(f"len(notice.update_cache) is {self.get_truncate_input_ids_len(notice.update_cache)}")
+                        # print(f"self.find_first_diff_index(notice.recv_cache, notice.update_cache) is {self.find_first_diff_index(notice.recv_cache, notice.update_cache)}")
 
                         dist.send(tensor=notice.update_cache, dst=src)
                         notice.input_ids = notice.update_cache.clone()
@@ -88,14 +88,8 @@ class CacheManager:
                         with self.notices[i].lock:
                             self.notices[i].is_update = True
                             self.notices[i].update_cache = notice.recv_cache.clone()
-                            print(f"target model 更新 {i} 号模型 tensor: {self.notices[i].update_cache[0][:30]}")
                     # Condition或事件代替忙等待，例如在更新input_ids后通知等待的线程。
                     with self.global_condition:
-                        # while True:
-                        #     with self.notices[1].lock:
-                        #         current_cache_len = self.find_first_diff_index(self.notices[1].input_ids, notice.recv_cache)
-                        #     if current_cache_len == prefix_len and len(self.notices[1].input_ids) > prefix_len:
-                        #         break
                         self.global_condition.wait()
                     send_token_ids = self.notices[1].input_ids
                 dist.send(tensor=send_token_ids, dst=src)

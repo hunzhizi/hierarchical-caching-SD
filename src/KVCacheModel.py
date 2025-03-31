@@ -61,7 +61,6 @@ class KVCacheModel(nn.Module):
         if self._past_key_values is None:
             # todo cuda 1 执行不完这句话
             outputs = self._model(input_ids)
-            print("forward_with kv cache")
 
             # logit shape is (batch_size, sequence_length, vocab_size)
             # todo 等价于 self.prob_history = outputs.logits

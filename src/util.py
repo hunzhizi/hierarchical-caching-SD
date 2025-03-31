@@ -5,6 +5,9 @@ import torch
 import torch.nn.functional as F
 import numpy as np
 
+from src.Config import Config
+
+
 def seed_everything(seed: int):
     "set all random seed for reproducible results."
     random.seed(seed)
@@ -20,6 +23,7 @@ def model_map(args):
     vocab_size = {
     "Qwen2.5-0.5B-Instruct": 151936,
     "Qwen2.5-1.5B-Instruct": 151936,
+    "Qwen2.5-3B-Instruct": 151936,
     "Qwen2.5-7B-Instruct": 151936,
 
     }
@@ -28,9 +32,10 @@ def model_map(args):
     #     "Qwen2.5-0.5B-Instruct": "D:\\model\\Qwen2.5-0.5B-Instruct",
     # }
     model_dir_map = {
-        "Qwen2.5-7B-Instruct": "/root/autodl-tmp/model/Qwen2.5-7B-Instruct",
-        "Qwen2.5-1.5B-Instruct": "/root/autodl-tmp/model/Qwen2.5-1.5B-Instruct",
-        "Qwen2.5-0.5B-Instruct": "/root/autodl-tmp/model/Qwen2.5-0.5B-Instruct",
+        "Qwen2.5-7B-Instruct": f"{Config.MODEL_DIR}/Qwen2.5-7B-Instruct",
+        "Qwen2.5-1.5B-Instruct": f"{Config.MODEL_DIR}/Qwen2.5-1.5B-Instruct",
+        "Qwen2.5-3B-Instruct": f"{Config.MODEL_DIR}/Qwen2.5-3B-Instruct",
+        "Qwen2.5-0.5B-Instruct": f"{Config.MODEL_DIR}/Qwen2.5-0.5B-Instruct",
         "Qwen2.5-14B-Instruct-2": ...,
     }
     # set vocab size and
@@ -51,7 +56,7 @@ def parse_arguments():
     parser.add_argument('--data_path', type=str, default="../data")
 
     parser.add_argument('--draft_models', type=str, nargs='+', default=["Qwen2.5-0.5B-Instruct"])
-    parser.add_argument('--target_model', type=str, default="Qwen2.5-1.5B-Instruct")
+    parser.add_argument('--target_model', type=str, default="Qwen2.5-7B-Instruct")
 
     parser.add_argument('--exp_name', '-e', type=str, default="test", help='folder name for storing results.')
     # 实验相关
@@ -79,9 +84,10 @@ def parse_arguments():
     args.exp_name = os.path.join(os.getcwd(), "exp", args.exp_name)
     os.makedirs(args.exp_name, exist_ok=True)
     model_map(args)
-    args.rank = int(os.environ["RANK"])  # 自动从环境变量获取
-    args.world_size = int(os.environ["WORLD_SIZE"])
-    args.local_rank = int(os.environ["LOCAL_RANK"])
+    if args.eval_mode == "para_sd":
+        args.rank = int(os.environ["RANK"])  # 自动从环境变量获取
+        args.world_size = int(os.environ["WORLD_SIZE"])
+        args.local_rank = int(os.environ["LOCAL_RANK"])
     return args
 
 

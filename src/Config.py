@@ -4,3 +4,5 @@ class Config():
     MAX_LEN = 1000
     BUFFER_SIZE = MAX_LEN + 50
     END_FLAG = 10
+    MODEL_DIR = "/hy-tmp"
+    AUTO_DL_MODEL_DIR = "/root/autodl-tmp/model"
