@@ -25,6 +25,9 @@ def model_map(args):
     "Qwen2.5-1.5B-Instruct": 151936,
     "Qwen2.5-3B-Instruct": 151936,
     "Qwen2.5-7B-Instruct": 151936,
+    "Llama-3.2-1B-Instruct":128256,
+    "Llama-3.2-3B-Instruct":128256,
+    "Llama-3.1-8B-Instruct":128256,
 
     }
     # model_dir_map = {
@@ -36,7 +39,9 @@ def model_map(args):
         "Qwen2.5-1.5B-Instruct": f"{Config.MODEL_DIR}/Qwen2.5-1.5B-Instruct",
         "Qwen2.5-3B-Instruct": f"{Config.MODEL_DIR}/Qwen2.5-3B-Instruct",
         "Qwen2.5-0.5B-Instruct": f"{Config.MODEL_DIR}/Qwen2.5-0.5B-Instruct",
-        "Qwen2.5-14B-Instruct-2": ...,
+        "Llama-3.2-1B-Instruct": f"{Config.MODEL_DIR}/Llama-3.2-1B-Instruct",
+        "Llama-3.2-3B-Instruct": f"{Config.MODEL_DIR}/Llama-3.2-3B-Instruct",
+        "Llama-3.1-8B-Instruct": f"{Config.MODEL_DIR}/Llama-3.1-8B-Instruct",
     }
     # set vocab size and
     # caution: all the models' vocab size should be the same

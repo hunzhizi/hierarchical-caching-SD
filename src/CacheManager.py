@@ -30,6 +30,9 @@ class CacheManager:
             thread.start()
             self.recv_threads.append(thread)
 
+    def join(self):
+        for e in self.recv_threads:
+            e.join()
 
     def _handle_worker(self, src):
         """处理指定GPU进程的通信"""
@@ -48,8 +51,11 @@ class CacheManager:
                 pass
 
             # notice.is_update = False
-
-            work.wait()
+            try:
+                work.wait()
+            except RuntimeError as e:
+                print(f"通信通道关闭,线程{src}结束")
+                break
             prefix_len = self.get_truncate_input_ids_len(notice.recv_cache)
             if src == 1:
                 # smallest model, check notice to update
@@ -88,10 +94,15 @@ class CacheManager:
                         with self.notices[i].lock:
                             self.notices[i].is_update = True
                             self.notices[i].update_cache = notice.recv_cache.clone()
-                    # Condition或事件代替忙等待，例如在更新input_ids后通知等待的线程。
-                    with self.global_condition:
-                        self.global_condition.wait()
-                    send_token_ids = self.notices[1].input_ids
+
+                    if not Config.IS_BRANCH_PREDICTION: # 是否采用分支预测
+                        dist.send(tensor=notice.recv_cache, dst=src)
+                        continue
+                    else:
+                        # Condition或事件代替忙等待，例如在更新input_ids后通知等待的线程。
+                        with self.global_condition:
+                            self.global_condition.wait()
+                        send_token_ids = self.notices[1].input_ids
                 dist.send(tensor=send_token_ids, dst=src)
 
             else:
@@ -135,6 +146,7 @@ class CacheManager:
                     # 命中
                     dist.send(tensor=last_notice.input_ids, dst=src)
                     notice.input_ids = last_notice.input_ids.clone()
+        print(f"{src} cache manager 结束")
 
     def get_truncate_input_ids_len(self, tensor: torch.Tensor) -> int:
         row = tensor[0]

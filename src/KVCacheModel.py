@@ -1,6 +1,9 @@
 import torch
+
+from .Config import Config
 from .util import norm_logits, sample, batch_norm_logits, greedy_sample
 import torch.nn as nn
+from time import perf_counter
 
 
 class KVCacheModel(nn.Module):
@@ -10,12 +13,16 @@ class KVCacheModel(nn.Module):
         self._model = model
         self._past_key_values = None
         # 保存seq中每一个tokens的logits 用于后续的验证
-        self.prob_history = None
+        # 这里的 prob_history 采用预先分配的方式
+        # self.prob_history = torch.empty((1, Config.BUFFER_SIZE, vocab_size),
+        #                        device=model.device, dtype=torch.float32)
+        # self.current_prob_history_len = 0
 
         self._temperature = temperature
         self._top_k = top_k
         self._top_p = top_p
         self._vocab_size = vocab_size
+        self.sum = 0
 
     @torch.no_grad()
     def generate(self, input: torch.Tensor, branch_prediction_num: int) -> torch.Tensor:
@@ -59,7 +66,6 @@ class KVCacheModel(nn.Module):
     def _forward_with_kvcache(self, input_ids: torch.Tensor) -> torch.Tensor:
         # 第一次推理没有保存kvcache ，此时调用forward
         if self._past_key_values is None:
-            # todo cuda 1 执行不完这句话
             outputs = self._model(input_ids)
 
             # logit shape is (batch_size, sequence_length, vocab_size)
@@ -105,7 +111,10 @@ class KVCacheModel(nn.Module):
                                                   self._temperature,
                                                   self._top_k,
                                                   self._top_p)
+
+            start = perf_counter()
             self.prob_history = torch.cat([self.prob_history, not_cached_q], dim=1)
+            self.sum += perf_counter() - start
 
             last_q = not_cached_q[:,-1 ,:]
             self._past_key_values = outputs.past_key_values

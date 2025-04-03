@@ -11,6 +11,7 @@ from src.Config import Config
 from src.KVCacheModel import KVCacheModel
 from src.util import seed_everything, norm_logits, sample, max_fn, greedy_sample
 import torch.distributed as dist
+from time import perf_counter
 
 
 class DecodingCpuCentric(ABC):
@@ -35,6 +36,7 @@ class DecodingCpuCentric(ABC):
             rank=self.rank,
             world_size=self.world_size
         )
+        self.gpu_group = dist.new_group([1,2,3])
         self.color_print(f"初始化",self.rank)
         if self.local_rank != 0 and torch.cuda.is_available():
             torch.cuda.set_device(self.local_rank - 1)
@@ -121,10 +123,11 @@ class DecodingCpuCentric(ABC):
                 self.color_print(f"Loading models:{self.args.target_model_dir}\n", self.rank)
                 self.target_model = AutoModelForCausalLM.from_pretrained(
                     self.args.target_model_dir,
-                    device_map="auto",
-                    max_memory={gpu: "32GiB" for gpu in target_gpus},
+                    device_map={"": self.device},
+                    # max_memory={gpu: "32GiB" for gpu in target_gpus},
                     torch_dtype=torch.bfloat16,
-                    trust_remote_code=True
+                    trust_remote_code=True,
+
                 ).eval()
                 # 验证设备位置（调试用）
                 # if self.local_rank < num_drafters:
@@ -252,16 +255,20 @@ class DecodingCpuCentric(ABC):
     def cpu_main(self):
         manager = CacheManager(self.world_size)
         manager.start()
-        work = dist.irecv(tensor=self.terminate_tensor, src=self.world_size-1,tag=Config.END_FLAG)
+        # work = dist.irecv(tensor=self.terminate_tensor, src=self.world_size-1,tag=Config.END_FLAG)
         # work = dist.irecv(tensor=self.terminate_tensor, src=self.world_size-1,tag=Config.END_FLAG)
         # work = dist.irecv(tensor=self.terminate_tensor, src=self.world_size-1,tag=Config.END_FLAG)
 
-        work.wait()
-        manager.terminate_flag.append(self.terminate_tensor.item())
-        dist.recv(tensor=self.terminate_tensor, src=self.world_size - 2, tag=Config.END_FLAG)
-        manager.terminate_flag.append(self.terminate_tensor.item())
-        dist.recv(tensor=self.terminate_tensor, src=self.world_size - 3, tag=Config.END_FLAG)
-        manager.terminate_flag.append(self.terminate_tensor.item())
+        # work.wait()
+        # print(f"终结 {self.terminate_tensor.item()}")
+        # manager.terminate_flag.append(self.terminate_tensor.item())
+        # dist.recv(tensor=self.terminate_tensor, src=self.world_size - 2, tag=Config.END_FLAG)
+        # manager.terminate_flag.append(self.terminate_tensor.item())
+        # print(f"终结 {self.terminate_tensor.item()}")
+        # dist.recv(tensor=self.terminate_tensor, src=self.world_size - 3, tag=Config.END_FLAG)
+        # manager.terminate_flag.append(self.terminate_tensor.item())
+        # print(f"终结 {self.terminate_tensor.item()}")
+        manager.join()
         dist.destroy_process_group()
 
 
@@ -285,6 +292,7 @@ class DecodingCpuCentric(ABC):
         # 记录推理次数
         step: int = 0
         seq_len: int = 0
+        sum = 0
         # 统一向CPU发送数据
         dst = 0
         while seq_len < max_tokens:
@@ -326,11 +334,22 @@ class DecodingCpuCentric(ABC):
                         # 如果 recv_buffer 和 send_buffer 完全相同 则index == Config.MAX_LEN，此时没有携带candidates
                         # 1. 没有携带 candidates 直接进行推理
                         # self.color_print(f"收到的用于推理的tokens \n {input_ids} \n {self.tokenizer.decode(input_ids[0].tolist())} \n", self.local_rank)
+                        # 测量一下 target model 推理所用的时间
+                        if self.is_target_model:
+                            start = perf_counter()
                         prefix = model.generate(input_ids, 1)
+                        if self.is_target_model:
+                            end = perf_counter()
+                            sum += end - start
                         seq_len = prefix.shape[1]
                     else:# 2.携带 candidates 推理后需要进行验证
                         # 目前只支持 batch_size = 1
+                        if self.is_target_model:
+                            start = perf_counter()
                         pending_verification_tokens_id = model.generate(input_ids, 1)
+                        if self.is_target_model:
+                            end = perf_counter()
+                            sum += end - start
                         cache_len:int = input_ids.shape[1]
                         # 进行验证
                         # self.color_print(f'seq_len is {seq_len}', self.local_rank)
@@ -352,19 +371,16 @@ class DecodingCpuCentric(ABC):
                         if acc_token < cache_len - seq_len:
                             model.rollback(seq_len + acc_token )
                         # if self.is_target_model:
-                        #     self.color_print(f"acc_token is {acc_token}", self.rank)
+                        #     self.color_print(f"acc_token is {acc_token}\n  {self.tokenizer.decode(predicted[:, :acc_token + 1 ][0].tolist())}", self.rank)
 
                         # 更新 prefix
                         prefix = torch.cat([prefix,predicted[:, :acc_token + 1 ]],dim=-1)
                         seq_len += acc_token + 1
 
         if self.is_target_model:
+            print(f"整个model所有操作的执行时间:{sum}")
+            print(f"KVModel中 forward推理时间:{model.sum}")
             return prefix
-        else:
-            dist.send(tensor=torch.tensor(self.rank),tag=Config.END_FLAG,dst=0)
-            dist.destroy_process_group()
-
-
 
 
 
@@ -386,6 +402,7 @@ class DecodingCpuCentric(ABC):
 
     @torch.no_grad()
     def parallel_speculative_decoding(self, prefix: torch.Tensor) -> torch.Tensor:
+        token_ids = None
         if self.rank == 0:
             self.cpu_main()
         else:

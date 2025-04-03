@@ -49,7 +49,7 @@ def test_single_model():
     args = parse_arguments()
     args.max_tokens = 1000
     args.eval_mode = "single_model"
-    args.target_model = "Qwen2.5-0.5B-Instruct"
+    args.target_model = "Qwen2.5-7B-Instruct"
     test_model = TestModel(args)
     test_model.eval()
 
