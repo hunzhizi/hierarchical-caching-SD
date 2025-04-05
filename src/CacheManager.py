@@ -24,8 +24,7 @@ class CacheManager:
         """用于重置 Cache manager"""
         for src in range(1, self.world_size):
             self.notices[src].reset_notice()
-            print(f"重置第{src}个cache manager 成功")
-            print(f"update cache is {self.notices[src].update_cache}")
+
 
     def start(self):
         """启动接收线程处理所有GPU进程"""
@@ -74,7 +73,7 @@ class CacheManager:
                         notice.update_cache.fill_(-1)
 
                     if notice.is_update:
-                        print(f"len(notice.update_cache) is {self.get_truncate_input_ids_len(notice.update_cache)}")
+                        # print(f"len(notice.update_cache) is {self.get_truncate_input_ids_len(notice.update_cache)}")
                         # print(f"self.find_first_diff_index(notice.recv_cache, notice.update_cache) is {self.find_first_diff_index(notice.recv_cache, notice.update_cache)}")
 
                         dist.send(tensor=notice.update_cache, dst=src)

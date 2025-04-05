@@ -1,6 +1,9 @@
 import os
 import re
 import sys
+
+from src.Config import Config
+
 sys.path.append(os.path.join(sys.path[0], "../"))
 import torch
 import json
@@ -8,9 +11,10 @@ import tqdm
 import time
 import random
 from src.util import seed_everything, parse_arguments
-from src.Decoding import Decoding
+from src.DecodingCpuCentric import DecodingCpuCentric
+import torch.distributed as dist
 
-class EvalGSM8K(Decoding):
+class EvalGSM8K(DecodingCpuCentric):
     def __init__(self, args):
         super().__init__(args)
         
@@ -24,6 +28,8 @@ class EvalGSM8K(Decoding):
         self.load_tokenizer()
         self.load_data()
         self.load_model()
+        dist.barrier()
+
 
     def create_demo_text(self, n_shot=8, cot_flag=True, ANSWER_TRIGGER="The answer is"):
         question, chain, answer = [], [], []
@@ -161,7 +167,9 @@ class EvalGSM8K(Decoding):
             for line in f.readlines():
                 datum = json.loads(line)
                 datum["input_text"] = self.preprocess(datum["question"])
-                encode_special_token_flag = not ("Llama-3.1" in self.args.draft_model and "Llama-3.1" in self.args.target_model)
+                encode_special_token_flag = not (
+                            "Llama-3.2-1B-Instruct" in self.args.draft_models_dir and "Llama-3.1-8B-Instruct" in self.args.target_model)
+
                 input_ids = self.tokenizer.encode(datum["input_text"], add_special_tokens=encode_special_token_flag)
                 datum["input_ids"] = torch.tensor(input_ids).unsqueeze(0)
                 datum["ground_truth"] = self.extract_answer_from_output(datum["answer"])
@@ -209,20 +217,18 @@ class EvalGSM8K(Decoding):
              
     @torch.no_grad()
     def eval(self):
-        if self.args.eval_mode == "small" or self.args.eval_mode == "large":
-            decoding = self.autoregressive_sampling
-        elif self.args.eval_mode == "sd":
+        if self.args.eval_mode == "sd" or self.args.eval_mode == "default":
             decoding = self.speculative_decoding
+        elif self.args.eval_mode == "single_model":
+            decoding = self.autoregressive_sampling
         elif self.args.eval_mode == "para_sd":
             decoding = self.parallel_speculative_decoding
-        elif self.args.eval_mode == "rc_para_sd":
-            decoding = self.parallel_speculative_decoding_RC
         else:
             raise NotImplementedError
-        
+
         out_path = os.path.join(self.args.exp_name, f"{self.args.eval_mode}_gsm8k.jsonl")
         out_f = open(out_path, "a")
-        wall_times = {"time":[], "num_tokens":[]}
+        # wall_times = {"time":[], "num_tokens":[]}
         for _ in range(self.args.num_samples_per_task):
             # set random seed. Ensure each experiment runs with a unique random seed.
             while self.seed in self.seed_set:
@@ -230,18 +236,23 @@ class EvalGSM8K(Decoding):
             seed_everything(self.seed)
             self.seed_set.add(self.seed)
             acc = 0
-            for idx, datum in tqdm.tqdm(enumerate(self.data), total=len(self.data), disable=not self.accelerator.is_main_process, ncols=50):
+            for idx, datum in tqdm.tqdm(enumerate(self.data), total=len(self.data), disable=not self.is_target_model, ncols=50):
                 input_ids = datum["input_ids"]
                 torch.cuda.synchronize()
                 start_time = time.time()
                 generate_ids = decoding(input_ids)
                 torch.cuda.synchronize()
                 end_time = time.time()
-                if self.accelerator.is_main_process:
-                    if idx != 0:
+                dist.barrier(self.gpu_group)
+                if self.args.eval_mode == "para_sd":
+                    if self.is_target_model:
+                        dist.send(torch.tensor([self.rank], dtype=torch.int), dst=0, tag=Config.END_FLAG)
+                    dist.barrier(self.gpu_group)
+                if self.is_target_model:
+                    # if idx != 0:
                         # skip the first prompt time consumption
-                        wall_times["time"].append(end_time-start_time)
-                        wall_times["num_tokens"].append(generate_ids.shape[1] - input_ids.shape[1])
+                        # wall_times["time"].append(end_time-start_time)
+                        # wall_times["num_tokens"].append(generate_ids.shape[1] - input_ids.shape[1])
                     answer = self.postprocess(datum["input_text"], self.tokenizer.decode(generate_ids[0, :]))
                     # assert answer != self.INVALID_ANS, self.color_print(f"Invalid Answer!\n question:\n{datum['question']}\nanswer:\n{answer}", 1)
                     if answer == datum["ground_truth"]:
@@ -253,19 +264,19 @@ class EvalGSM8K(Decoding):
         out_f.close()
         
         self.color_print(f"current eval mode: {self.args.eval_mode}", 0)
-        self.color_print(f"draft model forward times: {self.draft_forward_times}", 2)
+        # self.color_print(f"draft model forward times: {self.draft_forward_times}", 2)
         
-        self.accelerator.wait_for_everyone()
+        # self.accelerator.wait_for_everyone()
         
-        if (self.accelerator.num_processes == 1 and self.accelerator.is_main_process) or (self.accelerator.num_processes == 2 and not self.accelerator.is_main_process):
-            print(f"\033[92mtarget model forward times: {self.gather_forward_times()}\033[0m")
+        # if (self.accelerator.num_processes == 1 and self.accelerator.is_main_process) or (self.accelerator.num_processes == 2 and not self.accelerator.is_main_process):
+        #     print(f"\033[92mtarget model forward times: {self.gather_forward_times()}\033[0m")
         
-        self.accelerator.wait_for_everyone()
+        # self.accelerator.wait_for_everyone()
         
-        if self.accelerator.is_main_process:
-            speed = sum(wall_times["num_tokens"]) / sum(wall_times["time"])
-            speed_std = (torch.tensor(wall_times["num_tokens"]) / torch.tensor(wall_times["time"])).std().item()
-            self.color_print(f"generate speed (tokens / second): {speed:.2f} with std {speed_std}", 2)
+        # if self.accelerator.is_main_process:
+        #     speed = sum(wall_times["num_tokens"]) / sum(wall_times["time"])
+        #     speed_std = (torch.tensor(wall_times["num_tokens"]) / torch.tensor(wall_times["time"])).std().item()
+        #     self.color_print(f"generate speed (tokens / second): {speed:.2f} with std {speed_std}", 2)
 
     def gather_forward_times(self) -> list:
         """收集所有进程的 draft_forward_time 指标"""

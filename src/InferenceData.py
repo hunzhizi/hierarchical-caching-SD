@@ -1,6 +1,7 @@
 import json
 from typing import Tuple
 import os
+from time import perf_counter
 
 
 def save_dict_to_jsonl(data: dict, file_path: str):
@@ -17,18 +18,29 @@ class InferenceData:
     用于存储推理相关的信息
     todo 后续可能添加 内部类增加函数执行时间测试模块
     """
-    def __init__(self):
+    def __init__(self, rank: int = 0):
+        self.rank: int = rank
         # 注意 这里的 acc_len 只包含 新生成的 token 原本大模型产生的token 不包含在内
         self.acc_len_list: list = list()
         self.reject_len_list: list = list()
         self.forward_time: int = 0
         self.exe_time: float = 0
+        self.generate_timer = self.Timer()
+        self.verification_timer = self.Timer()
+        self.communication_timer = self.Timer()
+
 
     def reset_data(self):
         self.acc_len_list.clear()
         self.reject_len_list.clear()
         self.forward_time = 0
         self.exe_time = 0
+        self.generate_timer.time_list.clear()
+        self.verification_timer.time_list.clear()
+        self.communication_timer.time_list.clear()
+
+    def to_dict(self)-> dict:
+        return self.__dict__
 
     def _get_tokens_per_second_and_mean_acc_len(self) -> Tuple[float,float]:
         if self.exe_time == 0:
@@ -50,17 +62,44 @@ class InferenceData:
                            is_store: bool = False,
                            is_reset: bool = True,
                            file_path: str = None):
+        generate_time = self.generate_timer.get_sum_time()
+        verification_time = self.verification_timer.get_sum_time()
+        communication_time = self.communication_timer.get_sum_time()
+        self.exe_time = generate_time + verification_time + communication_time
         tokens_per_sec,mean_acc_len = self._get_tokens_per_second_and_mean_acc_len()
         data_view: dict = {
-            "acc_len_list": self.acc_len_list,
-            "reject_len_list": self.reject_len_list,
-            "forward_time": self.forward_time,
-            "exe_time": self.exe_time,
+            "self.rank": self.rank,
             "tokens_per_sec":tokens_per_sec,
             "mean_acc_len": mean_acc_len,
+            "exe_time": self.exe_time,
+            "generate_time": generate_time,
+            "verification_time": verification_time,
+            "communication_time": communication_time,
+            "forward_time": self.forward_time,
+            "acc_len_list": self.acc_len_list,
+            "reject_len_list": self.reject_len_list,
         }
         if is_store:
             save_dict_to_jsonl(data_view,file_path=file_path)
         if is_reset:
             self.reset_data()
         return data_view
+
+    class Timer:
+        def __init__(self):
+            self.time_list: list = list()
+
+
+        def __enter__(self):
+            self.start_time = perf_counter()
+            return self
+
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            self.end_time = perf_counter()
+            self.execution_time = self.end_time - self.start_time
+            self.time_list.append(self.execution_time)
+
+        def get_sum_time(self) -> float:
+            if len(self.time_list) == 0:
+                return -1
+            return sum(self.time_list)

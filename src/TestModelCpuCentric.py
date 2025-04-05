@@ -35,11 +35,9 @@ class TestModelCpuCentric(DecodingCpuCentric):
             input_ids = self.tokenizer.encode("Imagine a world where gravity reverses every 24 hours. Describe its societal, scientific, and architectural consequences.",
                                               add_special_tokens=encode_special_token_flag)
             input_ids = torch.tensor(input_ids).unsqueeze(0)
-            self.color_print(f"{self.rank}进行推理,input_ids are {input_ids}",self.rank)
             start = perf_counter()
             generate_ids = decoding(input_ids)
             end = perf_counter()
-            self.color_print(f"{self.rank} 推理结束",self.rank)
 
             if self.is_target_model:
                 print(f"精确耗时：{(end - start) * 1000:.3f} 毫秒")
@@ -52,9 +50,6 @@ class TestModelCpuCentric(DecodingCpuCentric):
                 if self.is_target_model:
                     dist.send(torch.tensor([self.rank], dtype=torch.int), dst=0, tag=Config.END_FLAG)
                 dist.barrier(self.gpu_group)
-
-            else:
-                print(f"精确耗时：{(end - start) * 1000:.3f} 毫秒")
 
             # todo reset model and cacheManager to execute next dataset
 
