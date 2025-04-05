@@ -4,17 +4,14 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="19e9cf66-6f9b-4dcc-89d2-fbfa061f467a" name="Changes" comment="可以正确推理并正确结束，加入 llama 1B 3B 8B 加速推理相关代码。">
-      <change beforePath="$PROJECT_DIR$/.idea/hierarchical-caching-SD.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/hierarchical-caching-SD.iml" afterDir="false" />
+    <list default="true" id="19e9cf66-6f9b-4dcc-89d2-fbfa061f467a" name="Changes" comment="修改 KV-cache model 中的 prob 部分为预分配部分，对整体推理时间进行了优化">
+      <change afterPath="$PROJECT_DIR$/src/InferenceData.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/CacheManager.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/CacheManager.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/Config.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/Config.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/DecodingCpuCentric.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/DecodingCpuCentric.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/KVCacheModel.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/KVCacheModel.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/TestModel.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/TestModel.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/Notice.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/Notice.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/TestModelCpuCentric.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/TestModelCpuCentric.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/util.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/util.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -248,7 +245,7 @@
       <workItem from="1742123847851" duration="61544000" />
       <workItem from="1743438873547" duration="75436000" />
       <workItem from="1743835385716" duration="207000" />
-      <workItem from="1743835603038" duration="3542000" />
+      <workItem from="1743835603038" duration="25379000" />
     </task>
     <task id="LOCAL-00001" summary="初版代码">
       <option name="closed" value="true" />
@@ -306,7 +303,15 @@
       <option name="project" value="LOCAL" />
       <updated>1743665736780</updated>
     </task>
-    <option name="localTasksCounter" value="8" />
+    <task id="LOCAL-00008" summary="修改 KV-cache model 中的 prob 部分为预分配部分，对整体推理时间进行了优化">
+      <option name="closed" value="true" />
+      <created>1743839711787</created>
+      <option name="number" value="00008" />
+      <option name="presentableId" value="LOCAL-00008" />
+      <option name="project" value="LOCAL" />
+      <updated>1743839711787</updated>
+    </task>
+    <option name="localTasksCounter" value="9" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -329,7 +334,8 @@
     <MESSAGE value="待调试版本的 para_decoding" />
     <MESSAGE value="可以正确推理并错误结束，结束的代码可以后续更新" />
     <MESSAGE value="可以正确推理并正确结束，加入 llama 1B 3B 8B 加速推理相关代码。" />
-    <option name="LAST_COMMIT_MESSAGE" value="可以正确推理并正确结束，加入 llama 1B 3B 8B 加速推理相关代码。" />
+    <MESSAGE value="修改 KV-cache model 中的 prob 部分为预分配部分，对整体推理时间进行了优化" />
+    <option name="LAST_COMMIT_MESSAGE" value="修改 KV-cache model 中的 prob 部分为预分配部分，对整体推理时间进行了优化" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
@@ -368,7 +374,7 @@
     <SUITE FILE_PATH="coverage/hierarchical_caching_SD$TestModelCpuCentric.coverage" NAME="TestModelCpuCentric Coverage Results" MODIFIED="1743529963110" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/src" />
     <SUITE FILE_PATH="coverage/hierarchical_caching_SD$util.coverage" NAME="util Coverage Results" MODIFIED="1740470318023" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/src" />
     <SUITE FILE_PATH="coverage/hierarchical_caching_SD$KVCacheModel.coverage" NAME="KVCacheModel Coverage Results" MODIFIED="1743671968367" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/src" />
-    <SUITE FILE_PATH="coverage/hierarchical_caching_SD$testKVCacheModel.coverage" NAME="testKVCacheModel Coverage Results" MODIFIED="1743838729430" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/test" />
+    <SUITE FILE_PATH="coverage/hierarchical_caching_SD$testKVCacheModel.coverage" NAME="testKVCacheModel Coverage Results" MODIFIED="1743844474751" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/test" />
     <SUITE FILE_PATH="coverage/hierarchical_caching_SD$CacheManagerTest.coverage" NAME="CacheManagerTest Coverage Results" MODIFIED="1741882951192" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/src" />
   </component>
 </project>

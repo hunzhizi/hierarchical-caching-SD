@@ -1,4 +1,5 @@
 import time
+from typing import Tuple
 
 import torch
 from torch.distributed import isend
@@ -8,6 +9,7 @@ from abc import ABC, abstractmethod
 
 from src.CacheManager import CacheManager
 from src.Config import Config
+from src.InferenceData import InferenceData
 from src.KVCacheModel import KVCacheModel
 from src.util import seed_everything, norm_logits, sample, max_fn, greedy_sample
 import torch.distributed as dist
@@ -58,6 +60,7 @@ class DecodingCpuCentric(ABC):
 
         self.draft_forward_times:int = 0
         self.target_forward_times:int = 0
+        self.inference_data = InferenceData()
         self.num_acc_tokens:list = list()
         self.vocab_size = args.vocab_size
         self.eval_mode = args.eval_mode
@@ -255,21 +258,12 @@ class DecodingCpuCentric(ABC):
     def cpu_main(self):
         manager = CacheManager(self.world_size)
         manager.start()
-        # work = dist.irecv(tensor=self.terminate_tensor, src=self.world_size-1,tag=Config.END_FLAG)
-        # work = dist.irecv(tensor=self.terminate_tensor, src=self.world_size-1,tag=Config.END_FLAG)
-        # work = dist.irecv(tensor=self.terminate_tensor, src=self.world_size-1,tag=Config.END_FLAG)
-
-        # work.wait()
-        # print(f"终结 {self.terminate_tensor.item()}")
-        # manager.terminate_flag.append(self.terminate_tensor.item())
-        # dist.recv(tensor=self.terminate_tensor, src=self.world_size - 2, tag=Config.END_FLAG)
-        # manager.terminate_flag.append(self.terminate_tensor.item())
-        # print(f"终结 {self.terminate_tensor.item()}")
-        # dist.recv(tensor=self.terminate_tensor, src=self.world_size - 3, tag=Config.END_FLAG)
-        # manager.terminate_flag.append(self.terminate_tensor.item())
-        # print(f"终结 {self.terminate_tensor.item()}")
-        manager.join()
-        dist.destroy_process_group()
+        while True:
+            work = dist.irecv(tensor=self.terminate_tensor, src=self.world_size-1,tag=Config.END_FLAG)
+            work.wait()
+            manager.reset_cache_manager()
+        # manager.join()
+        # dist.destroy_process_group()
 
 
 
@@ -289,42 +283,41 @@ class DecodingCpuCentric(ABC):
 
         # 创建通讯缓冲区
         recv_buffer = torch.full((1, Config.BUFFER_SIZE), -1, dtype=torch.long, device='cpu')
-        # 记录推理次数
-        step: int = 0
         seq_len: int = 0
         sum = 0
         # 统一向CPU发送数据
         dst = 0
 
+        # prefill part
         if seq_len == 0:
             # 直接进行推理
             prefix = model.generate(prefix, 1)
             # 更新 seq_len
             seq_len = prefix.shape[1]
 
+        recv_message = recv_buffer.cpu()
         while seq_len < max_tokens:
-            # 不是 prefill 阶段进行cache 的请求
-            # decoding 过程
+            # decode 过程
             # 先对 prefix 进行处理，然后进行通讯
             # currently only supports batch_size = 1
             # self.color_print(f"\nrank{self.rank}向CacheManager发请求: \n {prefix} \n {self.tokenizer.decode(prefix[0].tolist())} \n", self.local_rank)
-
             start = perf_counter()
+
             send_buffer = prefix
             # todo 这部分同步开销特别大
             send_message = send_buffer.cpu()
-            recv_message = recv_buffer.cpu()
-            end = perf_counter()
-            sum += (end - start)
+
             recv_message.fill_(-1)
             dist.send(tensor=send_message, dst=dst)
             dist.recv(tensor=recv_message, src=dst)
-            send_buffer = send_message.to(self.device)
+            send_buffer = prefix
             recv_buffer = recv_message.to(self.device)
             input_ids = self.truncate_tensor(recv_buffer)
             # self.color_print(f"收到的用于推理的tokens \n {input_ids} \n {self.tokenizer.decode(input_ids[0].tolist())} \n", self.local_rank)
             # 各个模型检查自己是否需要回滚
             index = self.find_first_diff_index(recv_buffer, send_buffer)
+            end = perf_counter()
+            sum += (end - start)
             if index < seq_len:
                 # 说明需要进行回滚
                 model.rollback(index)
@@ -340,18 +333,20 @@ class DecodingCpuCentric(ABC):
                     # 1. 没有携带 candidates 直接进行推理
                     # self.color_print(f"收到的用于推理的tokens \n {input_ids} \n {self.tokenizer.decode(input_ids[0].tolist())} \n", self.local_rank)
                     # 测量一下 target model 推理所用的时间
-                    # start = perf_counter()
+                    start = perf_counter()
                     prefix = model.generate(input_ids, 1)
-                    # end = perf_counter()
-                    # sum += (end - start)
+                    self.inference_data.add_acc(0)
+                    self.inference_data.add_reject(0)
+                    end = perf_counter()
+                    sum += (end - start)
                     seq_len = prefix.shape[1]
                 else:# 2.携带 candidates 推理后需要进行验证
                     # 目前只支持 batch_size = 1
 
-                    # start = perf_counter()
+                    start = perf_counter()
                     pending_verification_tokens_id = model.generate(input_ids, 1)
-                    # end = perf_counter()
-                    # sum += (end - start)
+                    end = perf_counter()
+                    sum += (end - start)
 
                     cache_len:int = input_ids.shape[1]
                     # 进行验证
@@ -365,23 +360,19 @@ class DecodingCpuCentric(ABC):
                     # self.color_print(f"predicted is {predicted}", self.local_rank)
                     # self.color_print(f"candidates is {candidates}", self.local_rank)
 
-                    verified = (predicted == candidates).all(dim=1)  # 检查所有Token是否匹配
-                    # torch.cuda.synchronize()
-                    # todo 这是一个很大的开销
-                    verified_bool = verified.item()
-                    # torch.cuda.synchronize()
-                    if verified_bool:
-                        acc_token = cache_len - seq_len
-                    else:
+                    pure_cache_len = cache_len - seq_len
+                    acc_token = pure_cache_len
+                    # todo 这个判断需要到 cpu同步，可能开销很大
+                    if not (predicted == candidates).all(dim=1):  # 检查所有Token是否匹配
                         mismatch_pos = (predicted != candidates).nonzero(as_tuple=True)[1].min()
                         acc_token = mismatch_pos.item()
                     # 如果没有全部接受，模型回滚,
-                    # self.color_print(f"acc_token is {acc_token}")
                     if acc_token < cache_len - seq_len:
                         model.rollback(seq_len + acc_token )
                     # if self.is_target_model:
-                    #     self.color_print(f"acc_token is {acc_token}\n  {self.tokenizer.decode(predicted[:, :acc_token + 1 ][0].tolist())}", self.rank)
-
+                        # self.color_print(f"acc_token is {acc_token}\n  {self.tokenizer.decode(predicted[:, :acc_token + 1 ][0].tolist())}", self.rank)
+                    self.inference_data.add_acc(acc_token)
+                    self.inference_data.add_reject(pure_cache_len)
                     # 更新 prefix
                     prefix = torch.cat([prefix,predicted[:, :acc_token + 1 ]],dim=-1)
                     seq_len += acc_token + 1
@@ -389,6 +380,8 @@ class DecodingCpuCentric(ABC):
         if self.is_target_model:
             print(f"整个model所有操作的执行时间:{sum}")
             # print(f"KVModel中 forward推理时间:{model.sum}")
+            self.inference_data.exe_time = sum
+            print(self.inference_data.get_inference_data(is_store=True,file_path="/root/hierarchical-sd/data.jsonl"))
             return prefix
 
 

@@ -4,7 +4,7 @@ from src.Config import Config
 from src.DecodingCpuCentric import DecodingCpuCentric
 from src.util import parse_arguments
 import torch
-from time import perf_counter
+from time import perf_counter, sleep
 import torch.distributed as dist
 import sys
 import os
@@ -31,26 +31,32 @@ class TestModelCpuCentric(DecodingCpuCentric):
         else:
             raise NotImplementedError("Not implemented yet.")
         encode_special_token_flag = not ("Llama-3.2-1B-Instruct" in self.args.draft_models_dir and "Llama-3.1-8B-Instruct" in self.args.target_model)
-        input_ids = self.tokenizer.encode("Write Act II of a Shakespearean - style tragedy titled The Shadow Throne. Scene 1: A royal council meeting where conflicting prophecies emerge. Scene 2: A secret rendezvous between the prince and his forbidden lover. Scene 3: The assassination attempt that changes everything.",
-                                          add_special_tokens=encode_special_token_flag)
-        input_ids = torch.tensor(input_ids).unsqueeze(0)
-        start = perf_counter()
-        generate_ids = decoding(input_ids)
-        end = perf_counter()
-        # 通知其他模型结束运行
-        # self.terminate_tensor = torch.tensor([1], dtype=torch.int)
-        # dist.isend(self.terminate_tensor, dst=0)
-        if self.is_target_model:
-            print(f"精确耗时：{(end - start) * 1000:.3f} 毫秒")
-            generate_ids = self.tokenizer.decode(generate_ids.squeeze())
-            print(f"generate_ids: {generate_ids}")
-            # dist.send(torch.tensor([self.rank],dtype=torch.int),dst=0, tag=Config.END_FLAG)
-        if self.args.eval_mode == "para_sd":
-            dist.barrier(self.gpu_group)
-        else:
-            print(f"精确耗时：{(end - start) * 1000:.3f} 毫秒")
+        for i in range(10):
+            input_ids = self.tokenizer.encode("Imagine a world where gravity reverses every 24 hours. Describe its societal, scientific, and architectural consequences.",
+                                              add_special_tokens=encode_special_token_flag)
+            input_ids = torch.tensor(input_ids).unsqueeze(0)
+            self.color_print(f"{self.rank}进行推理,input_ids are {input_ids}",self.rank)
+            start = perf_counter()
+            generate_ids = decoding(input_ids)
+            end = perf_counter()
+            self.color_print(f"{self.rank} 推理结束",self.rank)
 
-        # todo reset model and cacheManager to execute next dataset
+            if self.is_target_model:
+                print(f"精确耗时：{(end - start) * 1000:.3f} 毫秒")
+                generate_ids = self.tokenizer.decode(generate_ids.squeeze())
+                print(f"generate_ids: {generate_ids}")
+                print(f"第{i + 1}次推理")
+            # 在这里同步，通知cache manager 进行 reset
+            dist.barrier(self.gpu_group)
+            if self.args.eval_mode == "para_sd":
+                if self.is_target_model:
+                    dist.send(torch.tensor([self.rank], dtype=torch.int), dst=0, tag=Config.END_FLAG)
+                dist.barrier(self.gpu_group)
+
+            else:
+                print(f"精确耗时：{(end - start) * 1000:.3f} 毫秒")
+
+            # todo reset model and cacheManager to execute next dataset
 
     def postprocess(self, input_text, output_text):
         pass
