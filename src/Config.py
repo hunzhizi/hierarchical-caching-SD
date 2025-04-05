@@ -7,4 +7,4 @@ class Config():
     BUFFER_SIZE = MAX_LEN + 50
     END_FLAG = 10
     MODEL_DIR = _heng_yuan_yun
-    IS_BRANCH_PREDICTION = True
+    IS_BRANCH_PREDICTION = False

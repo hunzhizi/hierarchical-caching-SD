@@ -4,7 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="19e9cf66-6f9b-4dcc-89d2-fbfa061f467a" name="Changes" comment="可以正确推理并错误结束，结束的代码可以后续更新">
+    <list default="true" id="19e9cf66-6f9b-4dcc-89d2-fbfa061f467a" name="Changes" comment="可以正确推理并正确结束，加入 llama 1B 3B 8B 加速推理相关代码。">
       <change beforePath="$PROJECT_DIR$/.idea/hierarchical-caching-SD.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/hierarchical-caching-SD.iml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
@@ -13,6 +13,7 @@
       <change beforePath="$PROJECT_DIR$/src/DecodingCpuCentric.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/DecodingCpuCentric.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/KVCacheModel.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/KVCacheModel.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/TestModel.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/TestModel.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/TestModelCpuCentric.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/TestModelCpuCentric.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/util.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/util.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -39,7 +40,7 @@
   <component name="GithubPullRequestsUISettings">{
   &quot;selectedUrlAndAccountId&quot;: {
     &quot;url&quot;: &quot;https://github.com/hunzhizi/hierarchical-caching-SD.git&quot;,
-    &quot;accountId&quot;: &quot;09ee5070-b8c9-4209-8274-7389f2c697fe&quot;
+    &quot;accountId&quot;: &quot;0e8ec182-0d66-470c-bd74-16c4c59013a7&quot;
   }
 }</component>
   <component name="ProjectColorInfo">{
@@ -54,9 +55,11 @@
   <component name="PropertiesComponent"><![CDATA[{
   "keyToString": {
     "Python.CacheManagerTest.executor": "Run",
+    "Python.KVCacheModel.executor": "Run",
     "Python.TestModel.executor": "Run",
     "Python.TestModelCpuCentric.executor": "Run",
     "Python.multi_process.executor": "Run",
+    "Python.testKVCacheModel.executor": "Run",
     "Python.test_shared_memory.executor": "Run",
     "Python.util.executor": "Run",
     "RunOnceActivity.ShowReadmeOnStart": "true",
@@ -75,7 +78,7 @@
     "node.js.selected.package.tslint": "(autodetect)",
     "nodejs_package_manager_path": "npm",
     "python.debugger.dataview.coloredbydefault": "false",
-    "settings.editor.selected.configurable": "ssh.settings",
+    "settings.editor.selected.configurable": "com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable",
     "vue.rearranger.settings.migration": "true"
   }
 }]]></component>
@@ -86,12 +89,13 @@
       <recent name="D:\homework\hierarchical-caching-SD\data" />
     </key>
     <key name="MoveFile.RECENT_KEYS">
+      <recent name="E:\py\code_practice\hierarchical-caching-SD\test" />
       <recent name="D:\homework\hierarchical-caching-SD\test" />
       <recent name="D:\homework\hierarchical-caching-SD\src" />
     </key>
   </component>
-  <component name="RunManager" selected="Python.TestModel">
-    <configuration name="CacheManagerTest" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+  <component name="RunManager" selected="Python.testKVCacheModel">
+    <configuration name="KVCacheModel" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="hierarchical-caching-SD" />
       <option name="ENV_FILES" value="" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -105,7 +109,7 @@
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
       <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/CacheManagerTest.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/KVCacheModel.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -160,7 +164,7 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="multi_process" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+    <configuration name="testKVCacheModel" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="hierarchical-caching-SD" />
       <option name="ENV_FILES" value="" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -169,12 +173,12 @@
         <env name="PYTHONUNBUFFERED" value="1" />
       </envs>
       <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/src" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/test" />
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
       <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
-      <option name="SCRIPT_NAME" value="D:\homework\hierarchical-caching-SD\test\multi_process.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/test/testKVCacheModel.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -208,19 +212,19 @@
     </configuration>
     <recent_temporary>
       <list>
+        <item itemvalue="Python.testKVCacheModel" />
         <item itemvalue="Python.TestModel" />
+        <item itemvalue="Python.KVCacheModel" />
         <item itemvalue="Python.TestModelCpuCentric" />
         <item itemvalue="Python.test_shared_memory" />
-        <item itemvalue="Python.CacheManagerTest" />
-        <item itemvalue="Python.multi_process" />
       </list>
     </recent_temporary>
   </component>
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
-        <option value="bundled-js-predefined-d6986cc7102b-1632447f56bf-JavaScript-PY-243.25659.43" />
-        <option value="bundled-python-sdk-181015f7ab06-4df51de95216-com.jetbrains.pycharm.pro.sharedIndexes.bundled-PY-243.25659.43" />
+        <option value="bundled-js-predefined-d6986cc7102b-1632447f56bf-JavaScript-PY-243.26053.29" />
+        <option value="bundled-python-sdk-b1dbf8ef85a6-4df51de95216-com.jetbrains.pycharm.pro.sharedIndexes.bundled-PY-243.26053.29" />
       </set>
     </attachedChunks>
   </component>
@@ -242,6 +246,9 @@
       <workItem from="1741691525253" duration="26007000" />
       <workItem from="1742048206079" duration="28573000" />
       <workItem from="1742123847851" duration="61544000" />
+      <workItem from="1743438873547" duration="75436000" />
+      <workItem from="1743835385716" duration="207000" />
+      <workItem from="1743835603038" duration="3542000" />
     </task>
     <task id="LOCAL-00001" summary="初版代码">
       <option name="closed" value="true" />
@@ -291,7 +298,15 @@
       <option name="project" value="LOCAL" />
       <updated>1742289369665</updated>
     </task>
-    <option name="localTasksCounter" value="7" />
+    <task id="LOCAL-00007" summary="可以正确推理并正确结束，加入 llama 1B 3B 8B 加速推理相关代码。">
+      <option name="closed" value="true" />
+      <created>1743665736780</created>
+      <option name="number" value="00007" />
+      <option name="presentableId" value="LOCAL-00007" />
+      <option name="project" value="LOCAL" />
+      <updated>1743665736780</updated>
+    </task>
+    <option name="localTasksCounter" value="8" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -313,7 +328,8 @@
     <MESSAGE value="初步完成分层decoding" />
     <MESSAGE value="待调试版本的 para_decoding" />
     <MESSAGE value="可以正确推理并错误结束，结束的代码可以后续更新" />
-    <option name="LAST_COMMIT_MESSAGE" value="可以正确推理并错误结束，结束的代码可以后续更新" />
+    <MESSAGE value="可以正确推理并正确结束，加入 llama 1B 3B 8B 加速推理相关代码。" />
+    <option name="LAST_COMMIT_MESSAGE" value="可以正确推理并正确结束，加入 llama 1B 3B 8B 加速推理相关代码。" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
@@ -324,9 +340,14 @@
           <option name="timeStamp" value="9" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/src/CacheManager.py</url>
-          <line>46</line>
-          <option name="timeStamp" value="10" />
+          <url>file://$PROJECT_DIR$/src/KVCacheModel.py</url>
+          <line>120</line>
+          <option name="timeStamp" value="15" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/src/KVCacheModel.py</url>
+          <line>92</line>
+          <option name="timeStamp" value="16" />
         </line-breakpoint>
       </breakpoints>
     </breakpoint-manager>
@@ -336,15 +357,18 @@
         <watch expression="self._past_key_values[0][0].shape" language="Python" />
         <watch expression="self.tokenizer.decode(token_ids=prefix.squeeze())" language="Python" />
         <watch expression="self.tokenizer.decode(token_ids=_.squeeze())" language="Python" />
+        <watch expression="outputs.logits" />
       </configuration>
     </watches-manager>
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
-    <SUITE FILE_PATH="coverage/hierarchical_caching_SD$util.coverage" NAME="util Coverage Results" MODIFIED="1740470318023" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/src" />
-    <SUITE FILE_PATH="coverage/hierarchical_caching_SD$multi_process.coverage" NAME="multi_process Coverage Results" MODIFIED="1741880404412" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/src" />
     <SUITE FILE_PATH="coverage/hierarchical_caching_SD$test_shared_memory.coverage" NAME="test_shared_memory Coverage Results" MODIFIED="1742542897888" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/test" />
-    <SUITE FILE_PATH="coverage/hierarchical_caching_SD$TestModelCpuCentric.coverage" NAME="TestModelCpuCentric Coverage Results" MODIFIED="1742555834211" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/src" />
+    <SUITE FILE_PATH="coverage/hierarchical_caching_SD$multi_process.coverage" NAME="multi_process Coverage Results" MODIFIED="1741880404412" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/src" />
+    <SUITE FILE_PATH="coverage/hierarchical_caching_SD$TestModel.coverage" NAME="TestModel Coverage Results" MODIFIED="1743673449595" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/src" />
+    <SUITE FILE_PATH="coverage/hierarchical_caching_SD$TestModelCpuCentric.coverage" NAME="TestModelCpuCentric Coverage Results" MODIFIED="1743529963110" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/src" />
+    <SUITE FILE_PATH="coverage/hierarchical_caching_SD$util.coverage" NAME="util Coverage Results" MODIFIED="1740470318023" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/src" />
+    <SUITE FILE_PATH="coverage/hierarchical_caching_SD$KVCacheModel.coverage" NAME="KVCacheModel Coverage Results" MODIFIED="1743671968367" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/src" />
+    <SUITE FILE_PATH="coverage/hierarchical_caching_SD$testKVCacheModel.coverage" NAME="testKVCacheModel Coverage Results" MODIFIED="1743838729430" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/test" />
     <SUITE FILE_PATH="coverage/hierarchical_caching_SD$CacheManagerTest.coverage" NAME="CacheManagerTest Coverage Results" MODIFIED="1741882951192" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/src" />
-    <SUITE FILE_PATH="coverage/hierarchical_caching_SD$TestModel.coverage" NAME="TestModel Coverage Results" MODIFIED="1742555845090" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/src" />
   </component>
 </project>

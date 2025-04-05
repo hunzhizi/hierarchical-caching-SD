@@ -1,3 +1,5 @@
+from time import perf_counter
+
 import torch
 import threading
 import torch.distributed as dist
@@ -16,6 +18,7 @@ class CacheManager:
         self.notices: List[Notice] = [Notice(max_len) for i in range(world_size + 1)]
         self.global_condition = threading.Condition()  # 全局条件变量
         self.terminate_flag: list = list()
+        self.sum_time = 0
 
 
     def start(self):

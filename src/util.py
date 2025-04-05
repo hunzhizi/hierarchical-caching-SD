@@ -60,8 +60,8 @@ def parse_arguments():
 
     parser.add_argument('--data_path', type=str, default="../data")
 
-    parser.add_argument('--draft_models', type=str, nargs='+', default=["Qwen2.5-0.5B-Instruct"])
-    parser.add_argument('--target_model', type=str, default="Qwen2.5-7B-Instruct")
+    parser.add_argument('--draft_models', type=str, nargs='+', default=["Llama-3.2-1B-Instruct"])
+    parser.add_argument('--target_model', type=str, default="Llama-3.1-8B-Instruct")
 
     parser.add_argument('--exp_name', '-e', type=str, default="test", help='folder name for storing results.')
     # 实验相关

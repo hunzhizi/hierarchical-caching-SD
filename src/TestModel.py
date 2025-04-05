@@ -30,7 +30,8 @@ class TestModel(Decoding):
         else:
             raise NotImplementedError("Not implemented yet.")
         encode_special_token_flag = not ("Llama-3.1" in self.args.draft_models_dir and "Llama-3.1" in self.args.target_model)
-        input_ids = self.tokenizer.encode("can you tell me a story about a man who is a detective and he is trying to solve a murder case. The story should be in the style of a noir novel. The detective is a private investigator named Jack who is hired by a wealthy businessman to solve a murder case. The businessman suspects that the victim, a wealthy businessman, was murdered by his own employees. ", add_special_tokens=encode_special_token_flag)
+        input_ids = self.tokenizer.encode("Write Act II of a Shakespearean - style tragedy titled The Shadow Throne. Scene 1: A royal council meeting where conflicting prophecies emerge. Scene 2: A secret rendezvous between the prince and his forbidden lover. Scene 3: The assassination attempt that changes everything."
+                                          , add_special_tokens=encode_special_token_flag)
         input_ids = torch.tensor(input_ids).unsqueeze(0)
         start = perf_counter()
         generate_ids = decoding(input_ids)

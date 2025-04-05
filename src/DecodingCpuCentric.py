@@ -295,91 +295,100 @@ class DecodingCpuCentric(ABC):
         sum = 0
         # 统一向CPU发送数据
         dst = 0
-        while seq_len < max_tokens:
-            if seq_len == 0:
-                # 直接进行推理
-                prefix = model.generate(prefix, 1)
-                # 更新 seq_len
-                seq_len = prefix.shape[1]
-                continue
-            else:
-                # 不是 prefill 阶段进行cache 的请求
-                # decoding 过程
-                # 先对 prefix 进行处理，然后进行通讯
-                # currently only supports batch_size = 1
-                # self.color_print(f"\nrank{self.rank}向CacheManager发请求: \n {prefix} \n {self.tokenizer.decode(prefix[0].tolist())} \n", self.local_rank)
-                send_buffer = prefix
-                send_message = send_buffer.cpu()
-                recv_message = recv_buffer.cpu()
-                recv_message.fill_(-1)
-                dist.send(tensor=send_message, dst=dst)
-                dist.recv(tensor=recv_message, src=dst)
-                send_buffer = send_message.to(self.device)
-                recv_buffer = recv_message.to(self.device)
-                input_ids = self.truncate_tensor(recv_buffer)
-                # self.color_print(f"收到的用于推理的tokens \n {input_ids} \n {self.tokenizer.decode(input_ids[0].tolist())} \n", self.local_rank)
-                # 各个模型检查自己是否需要回滚
-                index = self.find_first_diff_index(recv_buffer, send_buffer)
-                if index < seq_len:
-                    # 说明需要进行回滚
-                    model.rollback(index)
-                # 进行推理
-                if self.is_smallest_drafter:
-                    prefix = model.generate(input_ids, 1)
-                    seq_len = prefix.shape[1]
-                else:
-                    # 其他模型
-                    # 两种情况，
-                    if index != seq_len or index == input_ids.shape[1]:
-                        # 如果 recv_buffer 和 send_buffer 完全相同 则index == Config.MAX_LEN，此时没有携带candidates
-                        # 1. 没有携带 candidates 直接进行推理
-                        # self.color_print(f"收到的用于推理的tokens \n {input_ids} \n {self.tokenizer.decode(input_ids[0].tolist())} \n", self.local_rank)
-                        # 测量一下 target model 推理所用的时间
-                        if self.is_target_model:
-                            start = perf_counter()
-                        prefix = model.generate(input_ids, 1)
-                        if self.is_target_model:
-                            end = perf_counter()
-                            sum += end - start
-                        seq_len = prefix.shape[1]
-                    else:# 2.携带 candidates 推理后需要进行验证
-                        # 目前只支持 batch_size = 1
-                        if self.is_target_model:
-                            start = perf_counter()
-                        pending_verification_tokens_id = model.generate(input_ids, 1)
-                        if self.is_target_model:
-                            end = perf_counter()
-                            sum += end - start
-                        cache_len:int = input_ids.shape[1]
-                        # 进行验证
-                        # self.color_print(f'seq_len is {seq_len}', self.local_rank)
-                        # self.color_print(f"pending_verification_tokens_id shape[1] is {pending_verification_tokens_id.shape}", self.local_rank)
-                        candidates = pending_verification_tokens_id[:, seq_len:-1]
-                        predicted: torch.Tensor = model.prob_history[:, seq_len - 1:, :self.vocab_size].argmax(
-                            dim=-1)
-                        candidates = torch.hstack([candidates, predicted[:, -1:]])
-                        # self.color_print(f"predicted is {predicted}", self.local_rank)
-                        # self.color_print(f"candidates is {candidates}", self.local_rank)
-                        verified = (predicted == candidates).all(dim=1)  # 检查所有Token是否匹配
-                        if verified:
-                            acc_token = cache_len - seq_len
-                        else:
-                            mismatch_pos = (predicted != candidates).nonzero(as_tuple=True)[1].min()
-                            acc_token = mismatch_pos.item()
-                        # 如果没有全部接受，模型回滚,
-                        # self.color_print(f"acc_token is {acc_token}")
-                        if acc_token < cache_len - seq_len:
-                            model.rollback(seq_len + acc_token )
-                        # if self.is_target_model:
-                        #     self.color_print(f"acc_token is {acc_token}\n  {self.tokenizer.decode(predicted[:, :acc_token + 1 ][0].tolist())}", self.rank)
 
-                        # 更新 prefix
-                        prefix = torch.cat([prefix,predicted[:, :acc_token + 1 ]],dim=-1)
-                        seq_len += acc_token + 1
+        if seq_len == 0:
+            # 直接进行推理
+            prefix = model.generate(prefix, 1)
+            # 更新 seq_len
+            seq_len = prefix.shape[1]
+
+        while seq_len < max_tokens:
+            # 不是 prefill 阶段进行cache 的请求
+            # decoding 过程
+            # 先对 prefix 进行处理，然后进行通讯
+            # currently only supports batch_size = 1
+            # self.color_print(f"\nrank{self.rank}向CacheManager发请求: \n {prefix} \n {self.tokenizer.decode(prefix[0].tolist())} \n", self.local_rank)
+
+            start = perf_counter()
+            send_buffer = prefix
+            # todo 这部分同步开销特别大
+            send_message = send_buffer.cpu()
+            recv_message = recv_buffer.cpu()
+            end = perf_counter()
+            sum += (end - start)
+            recv_message.fill_(-1)
+            dist.send(tensor=send_message, dst=dst)
+            dist.recv(tensor=recv_message, src=dst)
+            send_buffer = send_message.to(self.device)
+            recv_buffer = recv_message.to(self.device)
+            input_ids = self.truncate_tensor(recv_buffer)
+            # self.color_print(f"收到的用于推理的tokens \n {input_ids} \n {self.tokenizer.decode(input_ids[0].tolist())} \n", self.local_rank)
+            # 各个模型检查自己是否需要回滚
+            index = self.find_first_diff_index(recv_buffer, send_buffer)
+            if index < seq_len:
+                # 说明需要进行回滚
+                model.rollback(index)
+            # 进行推理
+            if self.is_smallest_drafter:
+                prefix = model.generate(input_ids, 1)
+                seq_len = prefix.shape[1]
+            else:
+                # 其他模型
+                # 两种情况，
+                if index != seq_len or index == input_ids.shape[1]:
+                    # 如果 recv_buffer 和 send_buffer 完全相同 则index == Config.MAX_LEN，此时没有携带candidates
+                    # 1. 没有携带 candidates 直接进行推理
+                    # self.color_print(f"收到的用于推理的tokens \n {input_ids} \n {self.tokenizer.decode(input_ids[0].tolist())} \n", self.local_rank)
+                    # 测量一下 target model 推理所用的时间
+                    # start = perf_counter()
+                    prefix = model.generate(input_ids, 1)
+                    # end = perf_counter()
+                    # sum += (end - start)
+                    seq_len = prefix.shape[1]
+                else:# 2.携带 candidates 推理后需要进行验证
+                    # 目前只支持 batch_size = 1
+
+                    # start = perf_counter()
+                    pending_verification_tokens_id = model.generate(input_ids, 1)
+                    # end = perf_counter()
+                    # sum += (end - start)
+
+                    cache_len:int = input_ids.shape[1]
+                    # 进行验证
+                    # self.color_print(f'seq_len is {seq_len}', self.local_rank)
+                    # self.color_print(f"pending_verification_tokens_id shape[1] is {pending_verification_tokens_id.shape}", self.local_rank)
+                    verified_len = model.current_verified_len
+                    candidates = pending_verification_tokens_id[:, seq_len:-1]
+                    predicted: torch.Tensor = model.prob_history[:, seq_len - 1:verified_len, :self.vocab_size].argmax(
+                        dim=-1)
+                    candidates = torch.hstack([candidates, predicted[:, -1:]])
+                    # self.color_print(f"predicted is {predicted}", self.local_rank)
+                    # self.color_print(f"candidates is {candidates}", self.local_rank)
+
+                    verified = (predicted == candidates).all(dim=1)  # 检查所有Token是否匹配
+                    # torch.cuda.synchronize()
+                    # todo 这是一个很大的开销
+                    verified_bool = verified.item()
+                    # torch.cuda.synchronize()
+                    if verified_bool:
+                        acc_token = cache_len - seq_len
+                    else:
+                        mismatch_pos = (predicted != candidates).nonzero(as_tuple=True)[1].min()
+                        acc_token = mismatch_pos.item()
+                    # 如果没有全部接受，模型回滚,
+                    # self.color_print(f"acc_token is {acc_token}")
+                    if acc_token < cache_len - seq_len:
+                        model.rollback(seq_len + acc_token )
+                    # if self.is_target_model:
+                    #     self.color_print(f"acc_token is {acc_token}\n  {self.tokenizer.decode(predicted[:, :acc_token + 1 ][0].tolist())}", self.rank)
+
+                    # 更新 prefix
+                    prefix = torch.cat([prefix,predicted[:, :acc_token + 1 ]],dim=-1)
+                    seq_len += acc_token + 1
 
         if self.is_target_model:
             print(f"整个model所有操作的执行时间:{sum}")
-            print(f"KVModel中 forward推理时间:{model.sum}")
+            # print(f"KVModel中 forward推理时间:{model.sum}")
             return prefix
 
 

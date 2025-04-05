@@ -14,9 +14,9 @@ class KVCacheModel(nn.Module):
         self._past_key_values = None
         # 保存seq中每一个tokens的logits 用于后续的验证
         # 这里的 prob_history 采用预先分配的方式
-        # self.prob_history = torch.empty((1, Config.BUFFER_SIZE, vocab_size),
-        #                        device=model.device, dtype=torch.float32)
-        # self.current_prob_history_len = 0
+        self.prob_history = torch.empty((1, Config.BUFFER_SIZE, vocab_size),
+                               device=model.device, dtype=torch.float32)
+        self.current_verified_len = 0
 
         self._temperature = temperature
         self._top_k = top_k
@@ -61,7 +61,9 @@ class KVCacheModel(nn.Module):
         ]
 
         if self.prob_history is not None:
-            self.prob_history = self.prob_history[:, :end_pos, :]
+            # self.prob_history = self.prob_history[:, :end_pos, :]
+            self.current_verified_len = end_pos
+
 
     def _forward_with_kvcache(self, input_ids: torch.Tensor) -> torch.Tensor:
         # 第一次推理没有保存kvcache ，此时调用forward
@@ -70,25 +72,29 @@ class KVCacheModel(nn.Module):
 
             # logit shape is (batch_size, sequence_length, vocab_size)
             # todo 等价于 self.prob_history = outputs.logits
-            self.prob_history = outputs.logits[:, :, :self._vocab_size]
-            # self.prob_history = outputs.logits
+            # self.prob_history = outputs.logits[:, :, :self._vocab_size]
+            seq_len = outputs.logits.size(1)
+            self.prob_history[:, :seq_len, :] = outputs.logits
             # 对每个token的概率进行归一化 todo 效率太低，可以重写函数进行优化
             # for i in range(self.prob_history.shape[-2]):
             #     self.prob_history[:, i, :] = norm_logits(self.prob_history[:, i, :],
             #                                              self._temperature,
             #                                              self._top_k,
             #                                              self._top_p)
-            self.prob_history = batch_norm_logits(self.prob_history,
+            self.prob_history[:, :seq_len, :] = batch_norm_logits(self.prob_history[:, :seq_len, :],
                                                   self._temperature,
                                                   self._top_k,
                                                   self._top_p)
             # 记录kvcache
             self._past_key_values = outputs.past_key_values
             # todo 只要最后一个为什么前面对所有token 进行归一化？
-            last_q = self.prob_history[:, -1, :]
+            # last_q = self.prob_history[:, -1, :]
+            last_q = self.prob_history[:, seq_len-1, :]
+            self.current_verified_len = seq_len
         else:
             # 有kvcache 进行的推理
             # return the last token's logits
+            # 注意： 这里的 seq_len 不是input_ids 的len 是含有kvcache的 seq len 不包含上次cat 的tokens
             seq_len = self._past_key_values[0][0].shape[2]
             # caution 这里获取 seq_len 并不是脱裤子放屁，很重要的一步操作，因为seq_len 后面有一些tokens被接受了，但是没有kvcache
             last_input_id = input_ids[:, seq_len:]
@@ -112,9 +118,13 @@ class KVCacheModel(nn.Module):
                                                   self._top_k,
                                                   self._top_p)
 
-            start = perf_counter()
-            self.prob_history = torch.cat([self.prob_history, not_cached_q], dim=1)
-            self.sum += perf_counter() - start
+            cur_len = self.current_verified_len
+            self.current_verified_len += outputs.logits.size(1)
+
+            # start = perf_counter()
+            # self.prob_history = torch.cat([self.prob_history, not_cached_q], dim=1)
+            self.prob_history[:, cur_len:self.current_verified_len, :] = not_cached_q[:,:,:]
+            # self.sum += perf_counter() - start
 
             last_q = not_cached_q[:,-1 ,:]
             self._past_key_values = outputs.past_key_values
