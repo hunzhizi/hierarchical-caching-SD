@@ -40,18 +40,17 @@ class TestModelCpuCentric(DecodingCpuCentric):
             end = perf_counter()
 
             if self.is_target_model:
+                print(f"第{i + 1}次推理")
                 print(f"精确耗时：{(end - start) * 1000:.3f} 毫秒")
                 generate_ids = self.tokenizer.decode(generate_ids.squeeze())
                 print(f"generate_ids: {generate_ids}")
-                print(f"第{i + 1}次推理")
-            # 在这里同步，通知cache manager 进行 reset
+            # 在这里同步，通知cache manager 进行cache manage的 reset
             dist.barrier(self.gpu_group)
             if self.args.eval_mode == "para_sd":
                 if self.is_target_model:
                     dist.send(torch.tensor([self.rank], dtype=torch.int), dst=0, tag=Config.END_FLAG)
                 dist.barrier(self.gpu_group)
 
-            # todo reset model and cacheManager to execute next dataset
 
     def postprocess(self, input_text, output_text):
         pass
@@ -59,11 +58,6 @@ class TestModelCpuCentric(DecodingCpuCentric):
     def preprocess(self, input_text):
         pass
 
-def test_single_model():
-    args = parse_arguments()
-    args.eval_mode = "single_model"
-    test_model = TestModelCpuCentric(args)
-    test_model.eval()
 
 def test_speculative_decoding():
     args = parse_arguments()

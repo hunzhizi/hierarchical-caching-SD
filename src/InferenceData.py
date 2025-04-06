@@ -6,17 +6,28 @@ from time import perf_counter
 
 def save_dict_to_jsonl(data: dict, file_path: str):
     try:
+        # 获取文件所在的目录
+        dir_path = os.path.dirname(file_path)
+        # 如果目录不存在，则创建目录
+        if not os.path.exists(dir_path):
+            os.makedirs(dir_path, exist_ok=True)
+
         with open(file_path, "a", encoding="utf-8") as file:
-            json_line = json.dumps(data,ensure_ascii=False)
+            json_line = json.dumps(data, ensure_ascii=False)
             file.write(json_line + '\n')
     except Exception as e:
         print(f"保存文件的时候出现错误:{e}")
 
 
+
 class InferenceData:
     """
     用于存储推理相关的信息
-    todo 后续可能添加 内部类增加函数执行时间测试模块
+    注意在使用过程中要记录三个信息才能进正确使用该模块
+    分别是：
+    acc_len_list:list
+    reject_len_list
+    generate_timer
     """
     def __init__(self, rank: int = 0):
         self.rank: int = rank
@@ -66,6 +77,10 @@ class InferenceData:
         verification_time = self.verification_timer.get_sum_time()
         communication_time = self.communication_timer.get_sum_time()
         self.exe_time = generate_time + verification_time + communication_time
+        if verification_time == -1:
+            self.exe_time += 1
+        if communication_time == -1:
+            self.exe_time += 1
         tokens_per_sec,mean_acc_len = self._get_tokens_per_second_and_mean_acc_len()
         data_view: dict = {
             "self.rank": self.rank,
@@ -101,5 +116,6 @@ class InferenceData:
 
         def get_sum_time(self) -> float:
             if len(self.time_list) == 0:
+                # -1 表示没有记录该项
                 return -1
             return sum(self.time_list)

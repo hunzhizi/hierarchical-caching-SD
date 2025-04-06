@@ -67,7 +67,8 @@ def parse_arguments():
     # 实验相关
     # todo add more eval mode
     parser.add_argument('--eval_mode', type=str, default="default",
-                        choices=["default","single_model","small", "large", "sd", "para_sd", "para_sd_wo_1", "para_sd_wo_2"], help='eval mode.')
+                        choices=["default","single_model", "sd", "para_sd",], help='eval mode.')
+
     parser.add_argument("--model_name", type=str, default="",
                         help="when '--eval_mode' is single_model ,use this to specify the model name.")
 
@@ -89,10 +90,10 @@ def parse_arguments():
     args.exp_name = os.path.join(os.getcwd(), "exp", args.exp_name)
     os.makedirs(args.exp_name, exist_ok=True)
     model_map(args)
-    if args.eval_mode == "para_sd":
-        args.rank = int(os.environ["RANK"])  # 自动从环境变量获取
-        args.world_size = int(os.environ["WORLD_SIZE"])
-        args.local_rank = int(os.environ["LOCAL_RANK"])
+    # if args.eval_mode == "para_sd":
+    args.rank = int(os.environ["RANK"])  # 自动从环境变量获取
+    args.world_size = int(os.environ["WORLD_SIZE"])
+    args.local_rank = int(os.environ["LOCAL_RANK"])
     return args
 
 

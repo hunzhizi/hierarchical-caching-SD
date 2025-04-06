@@ -38,25 +38,10 @@ class DecodingCpuCentric(ABC):
             rank=self.rank,
             world_size=self.world_size
         )
-        self.gpu_group = dist.new_group([1,2,3])
-        self.color_print(f"初始化",self.rank)
-        if self.local_rank != 0 and torch.cuda.is_available():
-            torch.cuda.set_device(self.local_rank - 1)
-            # 注意 rank1 映射到 cuda:0
-            self.device = torch.device(f"cuda:{self.local_rank - 1}")
-            self.is_drafter = True
-            if self.local_rank == 1:
-                self.is_smallest_drafter = True
-            if self.local_rank == self.world_size -1:
-                self.is_target_model = True
-                self.is_drafter = False
-
-        elif self.local_rank == 0:
-            # rank0 为 cpu 进行 负责集中通信
-            self.device = torch.device("cpu")
-        else :
-            raise NotImplemented
-
+        if args.eval_mode == "para_sd":
+            self._init_para_sd_config()
+        else:
+            self._init_single_model_config()
 
         self.draft_forward_times:int = 0
         self.target_forward_times:int = 0
@@ -77,6 +62,31 @@ class DecodingCpuCentric(ABC):
         self.pending_verified_len = 0
 
         self.terminate_tensor = torch.tensor([0], dtype=torch.int)
+
+    def _init_para_sd_config(self) -> None:
+        self.gpu_group = dist.new_group([1, 2, 3])
+        self.color_print(f"初始化", self.rank)
+        if self.local_rank != 0 and torch.cuda.is_available():
+            torch.cuda.set_device(self.local_rank - 1)
+            # 注意 rank1 映射到 cuda:0
+            self.device = torch.device(f"cuda:{self.local_rank - 1}")
+            self.is_drafter = True
+            if self.local_rank == 1:
+                self.is_smallest_drafter = True
+            if self.local_rank == self.world_size - 1:
+                self.is_target_model = True
+                self.is_drafter = False
+
+        elif self.local_rank == 0:
+            # rank0 为 cpu 进行 负责集中通信
+            self.device = torch.device("cpu")
+        else:
+            raise NotImplemented
+
+    def _init_single_model_config(self)->None:
+        self.gpu_group = dist.new_group([0])
+        self.is_target_model = True
+
 
     def load_model(self):
         # load models according to different evaluation methods.
@@ -167,33 +177,39 @@ class DecodingCpuCentric(ABC):
 
     @torch.no_grad
     def autoregressive_sampling(self, prefix):
-        if self.eval_mode != "single_model":
-            raise RuntimeError("autoregressive_sampling only support single_model mode.")
-        if self.model_name is None:
-            raise RuntimeError("model_name is not specified.")
-        model = self.target_model
-        prefix = prefix.to(model.device)
+        with self.inference_data.generate_timer:
+            if self.eval_mode != "single_model":
+                raise RuntimeError("autoregressive_sampling only support single_model mode.")
+            if self.model_name is None:
+                raise RuntimeError("model_name is not specified.")
+            model = self.target_model
+            prefix = prefix.to(model.device)
 
-        prefix_len = prefix.shape[1]
-        max_tokens = prefix_len + self.max_tokens
+            prefix_len = prefix.shape[1]
+            max_tokens = prefix_len + self.max_tokens
 
-        # x 为 在 decode 过程中生成的tokens shape: [batch_size, input_len]
-        tokens_id = prefix
-        past_key_values = None
-        while tokens_id.shape[1] < max_tokens:
-            if past_key_values is None:
-                outputs = model(tokens_id)
-            else:
-                last_ids = tokens_id[:, -1]
-                if last_ids.dim() == 1:
-                    last_ids = last_ids.unsqueeze(0)
-                outputs = model(last_ids, past_key_values=past_key_values, use_cache=True)
-            self.target_forward_times += 1
+            # x 为 在 decode 过程中生成的tokens shape: [batch_size, input_len]
+            tokens_id = prefix
+            past_key_values = None
+            while tokens_id.shape[1] < max_tokens:
+                if past_key_values is None:
+                    outputs = model(tokens_id)
+                else:
+                    last_ids = tokens_id[:, -1]
+                    if last_ids.dim() == 1:
+                        last_ids = last_ids.unsqueeze(0)
+                    outputs = model(last_ids, past_key_values=past_key_values, use_cache=True)
+                # autogressive_sampling 既不接受，也不拒绝
+                self.inference_data.add_acc(0)
+                self.inference_data.add_reject(0)
 
-            last_p = norm_logits(outputs.logits[:, -1, :], self.temperature, self.top_k, self.top_p)
-            past_key_values = outputs.past_key_values
-            idx_next = sample(max_fn(last_p))
-            tokens_id = torch.cat([tokens_id, idx_next], dim=1)
+                last_p = norm_logits(outputs.logits[:, -1, :], self.temperature, self.top_k, self.top_p)
+                past_key_values = outputs.past_key_values
+                idx_next = sample(max_fn(last_p))
+                tokens_id = torch.cat([tokens_id, idx_next], dim=1)
+
+        print(self.inference_data.get_inference_data(is_store=True,
+                                                     file_path=f"{Config.PROFILE_MODEL_INFERENCE_DIR}/single_model.jsonl"))
         return tokens_id
 
     @torch.no_grad()
@@ -376,7 +392,7 @@ class DecodingCpuCentric(ABC):
         if self.is_target_model:
             print(f"整个model通信的执行时间:{sum}")
             # self.inference_data.exe_time = sum
-            print(self.inference_data.get_inference_data(is_store=True,file_path="/root/hierarchical-sd/data.jsonl"))
+            print(self.inference_data.get_inference_data(is_store=True,file_path=f"{Config.PROFILE_MODEL_INFERENCE_DIR}/para_sd.jsonl"))
             return prefix
 
 
