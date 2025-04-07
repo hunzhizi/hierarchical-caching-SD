@@ -1,10 +1,11 @@
+import os
 import time
 from typing import Tuple
 
 import torch
 from torch.distributed import isend
 from torch.package.analyze import find_first_use_of_broken_modules
-from transformers import AutoModelForCausalLM, AutoTokenizer
+from transformers import AutoModelForCausalLM, AutoTokenizer, AutoConfig
 from abc import ABC, abstractmethod
 
 from src.CacheManager import CacheManager
@@ -31,6 +32,7 @@ class DecodingCpuCentric(ABC):
         self.is_drafter:bool = False
         self.is_target_model = False
         self.is_smallest_drafter = False
+        self.cuda_device_count: int = torch.cuda.device_count()
         # 初始化分布式进程组
         dist.init_process_group(
             backend='gloo',  # 如果是纯 CPU 用 'gloo'，GPU 建议 'nccl'
@@ -119,7 +121,7 @@ class DecodingCpuCentric(ABC):
             num_total_gpus = torch.cuda.device_count()
 
             # 防御性检查
-            assert num_total_gpus > num_drafters, "GPU 不足，无法隔离 Draft 和 Target 模型"
+            # assert num_total_gpus > num_drafters, "GPU 不足，无法隔离 Draft 和 Target 模型"
 
             if self.is_drafter:
                 self.color_print(f"{self.device} Loading models:{self.args.draft_models_dir[self.local_rank - 1]}\n", self.rank)
@@ -131,23 +133,29 @@ class DecodingCpuCentric(ABC):
                     trust_remote_code=True
                 ).eval()
             if self.is_target_model:
+                config = AutoConfig.from_pretrained(self.args.target_model_dir)
+                device_map = {"": self.device}
+                if self.cuda_device_count == 4:
+                    num_layers = config.num_hidden_layers
+                    split_point = num_layers // 2 + 1
+                    device_map ={
+                        "model.embed_tokens": "cuda:2",
+                        **{f"model.layers.{i}":"cuda:2" for i in range(0,split_point)},
+                        **{f"model.layers.{i}":"cuda:3" for i in range(split_point,num_layers)},
+                        "model.norm": "cuda:3",
+                        "lm_head": "cuda:3",
+                    }
                 # Target 模型：自动分片到剩余 GPU
                 target_gpus = list(range(num_drafters, num_total_gpus))
                 self.color_print(f"Loading models:{self.args.target_model_dir}\n", self.rank)
                 self.target_model = AutoModelForCausalLM.from_pretrained(
                     self.args.target_model_dir,
-                    device_map={"": self.device},
-                    # max_memory={gpu: "32GiB" for gpu in target_gpus},
+                    device_map=device_map,
                     torch_dtype=torch.bfloat16,
                     trust_remote_code=True,
 
                 ).eval()
-                # 验证设备位置（调试用）
-                # if self.local_rank < num_drafters:
-                #     params = list(self.draft_model.parameters())
-                #     assert all(p.device == self.accelerator.device for p in params), "Draft 模型设备错位！"
-                # else:
-                #     print(f"Target 模型设备映射: {self.target_model.hf_device_map}")
+                # print(self.target_model)
 
     def load_tokenizer(self):
         # * load tokenizers
