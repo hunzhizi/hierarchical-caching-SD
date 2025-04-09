@@ -396,6 +396,10 @@ class DecodingCpuCentric(ABC):
                         # 更新 prefix
                         prefix = torch.cat([prefix,predicted[:, :acc_token + 1 ]],dim=-1)
                         seq_len += acc_token + 1
+                        # 如果碰到结束符，则推出推理
+                        # if self.is_target_model:
+                        #     if set(predicted[:, :acc_token + 1 ][0].tolist()).isdisjoint({128001,128008,128009}):
+                        #         break
 
         if self.is_target_model:
             print(f"整个model通信的执行时间:{sum}")

@@ -12,8 +12,15 @@ CUDA_VISIBLE_DEVICES=0,1,2 accelerate launch --num_processes 1  --num_machines 1
 * 使用Qwen2.5 parallel decoding 进行推理
 CUDA_VISIBLE_DEVICES=0,1,2 torchrun --nproc_per_node=4 --nnodes=1 --master_addr=127.0.0.1 --master_port=12345 TestModelCpuCentric.py --eval_mode para_sd --draft_model Qwen2.5-0.5B-Instruct Qwen2.5-1.5B-Instruct --target_model Qwen2.5-7B-Instruct --max_tokens 512 
 
-* 使用 llama3 parallel decoding 进行推理
+* 使用 llama3 parallel decoding 测试推理框架
 CUDA_VISIBLE_DEVICES=0,1,2 torchrun --nproc_per_node=4 --nnodes=1 --master_addr=127.0.0.1 --master_port=12345 TestModelCpuCentric.py --eval_mode para_sd --draft_model Llama-3.2-1B-Instruct Llama-3.2-3B-Instruct --target_model Llama-3.1-8B-Instruct --max_tokens 512 
-* 测试单个模型 todo 未测试
+* 测试单个模型 
 CUDA_VISIBLE_DEVICES=0 torchrun --nproc_per_node=1 --nnodes=1 --master_addr=127.0.0.1 --master_port=12345 TestModelCpuCentric.py --eval_mode single_model --model_name Llama-3.1-8B-Instruct --max_tokens 512 
-
+* 使用 llama3 parallel decoding 数据集eval_gsm8k.py
+CUDA_VISIBLE_DEVICES=0,1,2 torchrun --nproc_per_node=4 --nnodes=1 --master_addr=127.0.0.1 --master_port=12345 ../benchmark/eval_gsm8k.py --eval_mode para_sd --draft_model Llama-3.2-1B-Instruct Llama-3.2-3B-Instruct --target_model Llama-3.1-8B-Instruct --max_tokens 512 
+* 使用 llama3 parallel decoding 数据集eval_gsm8k.py
+CUDA_VISIBLE_DEVICES=0,1,2 torchrun --nproc_per_node=4 --nnodes=1 --master_addr=127.0.0.1 --master_port=12345 ../benchmark/eval_humaneval.py --eval_mode para_sd --draft_model Llama-3.2-1B-Instruct Llama-3.2-3B-Instruct --target_model Llama-3.1-8B-Instruct --max_tokens 512 
+* 使用 llama3 parallel decoding 数据集eval_gsm8k.py
+CUDA_VISIBLE_DEVICES=0,1,2 torchrun --nproc_per_node=4 --nnodes=1 --master_addr=127.0.0.1 --master_port=12345 ../benchmark/eval_mgsm.py --eval_mode para_sd --draft_model Llama-3.2-1B-Instruct Llama-3.2-3B-Instruct --target_model Llama-3.1-8B-Instruct --max_tokens 512 
+* 使用 llama3 parallel decoding 数据集eval_gsm8k.py
+CUDA_VISIBLE_DEVICES=0,1,2 torchrun --nproc_per_node=4 --nnodes=1 --master_addr=127.0.0.1 --master_port=12345 ../benchmark/eval_mt_bench.py --eval_mode para_sd --draft_model Llama-3.2-1B-Instruct Llama-3.2-3B-Instruct --target_model Llama-3.1-8B-Instruct --max_tokens 512 

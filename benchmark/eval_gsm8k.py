@@ -278,17 +278,6 @@ class EvalGSM8K(DecodingCpuCentric):
         #     speed_std = (torch.tensor(wall_times["num_tokens"]) / torch.tensor(wall_times["time"])).std().item()
         #     self.color_print(f"generate speed (tokens / second): {speed:.2f} with std {speed_std}", 2)
 
-    def gather_forward_times(self) -> list:
-        """收集所有进程的 draft_forward_time 指标"""
-        # 将本地指标转为 Tensor
-        local_time = torch.tensor([self.draft_forward_times],
-                                  device=self.accelerator.device)
-
-        # 跨进程收集数据
-        all_times = self.accelerator.gather(local_time)
-
-        # 返回所有进程的时间列表（自动处理设备转换）
-        return all_times.cpu().tolist()
 
 from transformers import AutoTokenizer, AutoModel
 if __name__ == "__main__":

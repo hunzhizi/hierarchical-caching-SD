@@ -34,6 +34,8 @@ class TestModelCpuCentric(DecodingCpuCentric):
         for i in range(10):
             input_ids = self.tokenizer.encode("Imagine a world where gravity reverses every 24 hours. Describe its societal, scientific, and architectural consequences.",
                                               add_special_tokens=encode_special_token_flag)
+            input_ids = self.tokenizer.encode("hello",
+                                              add_special_tokens=encode_special_token_flag)
             input_ids = torch.tensor(input_ids).unsqueeze(0)
             start = perf_counter()
             generate_ids = decoding(input_ids)
