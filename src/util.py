@@ -28,6 +28,7 @@ def model_map(args):
     "Llama-3.2-1B-Instruct":128256,
     "Llama-3.2-3B-Instruct":128256,
     "Llama-3.1-8B-Instruct":128256,
+    "Llama-3.1-70B-Instruct":128256,
 
     }
     # model_dir_map = {
@@ -42,6 +43,7 @@ def model_map(args):
         "Llama-3.2-1B-Instruct": f"{Config.MODEL_DIR}/Llama-3.2-1B-Instruct",
         "Llama-3.2-3B-Instruct": f"{Config.MODEL_DIR}/Llama-3.2-3B-Instruct",
         "Llama-3.1-8B-Instruct": f"{Config.MODEL_DIR}/Llama-3.1-8B-Instruct",
+        "Llama-3.1-70B-Instruct": f"{Config.MODEL_DIR}/Llama-3.1-70B-Instruct",
     }
     # set vocab size and
     # caution: all the models' vocab size should be the same

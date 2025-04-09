@@ -254,6 +254,7 @@ class EvalGSM8K(DecodingCpuCentric):
                         # wall_times["time"].append(end_time-start_time)
                         # wall_times["num_tokens"].append(generate_ids.shape[1] - input_ids.shape[1])
                     answer = self.postprocess(datum["input_text"], self.tokenizer.decode(generate_ids[0, :]))
+                    print(self.tokenizer.decode(generate_ids[0, :]))
                     # assert answer != self.INVALID_ANS, self.color_print(f"Invalid Answer!\n question:\n{datum['question']}\nanswer:\n{answer}", 1)
                     if answer == datum["ground_truth"]:
                         acc += 1

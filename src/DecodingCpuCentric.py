@@ -143,10 +143,12 @@ class DecodingCpuCentric(ABC):
                         **{f"model.layers.{i}":"cuda:2" for i in range(0,split_point)},
                         **{f"model.layers.{i}":"cuda:3" for i in range(split_point,num_layers)},
                         "model.norm": "cuda:3",
+                        "model.rotary_emb":"cuda:3",
                         "lm_head": "cuda:3",
                     }
                 # Target 模型：自动分片到剩余 GPU
                 target_gpus = list(range(num_drafters, num_total_gpus))
+                print(device_map)
                 self.color_print(f"Loading models:{self.args.target_model_dir}\n", self.rank)
                 self.target_model = AutoModelForCausalLM.from_pretrained(
                     self.args.target_model_dir,
@@ -155,7 +157,7 @@ class DecodingCpuCentric(ABC):
                     trust_remote_code=True,
 
                 ).eval()
-                # print(self.target_model)
+                print(self.target_model)
 
     def load_tokenizer(self):
         # * load tokenizers
@@ -294,8 +296,7 @@ class DecodingCpuCentric(ABC):
     @torch.no_grad()
     def gpu_main(self,prefix: torch.Tensor):
         if self.is_target_model:
-            model = KVCacheModel(self.target_model, self.temperature, self.top_k, self.top_p, self.vocab_size).to(
-                self.device)
+            model = KVCacheModel(self.target_model, self.temperature, self.top_k, self.top_p, self.vocab_size)
         else:
             model = KVCacheModel(self.draft_model, self.temperature, self.top_k, self.top_p, self.vocab_size).to(
                 self.device)
