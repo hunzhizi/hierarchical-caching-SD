@@ -73,6 +73,8 @@ class KVCacheModel(nn.Module):
             # logit shape is (batch_size, sequence_length, vocab_size)
             # todo 等价于 self.prob_history = outputs.logits
             # self.prob_history = outputs.logits[:, :, :self._vocab_size]
+            if(outputs.logits.dim() ==2):
+                outputs.logits = outputs.logits.unsqueeze(0)
             seq_len = outputs.logits.size(1)
             self.prob_history[:, :seq_len, :] = outputs.logits
             # 对每个token的概率进行归一化 todo 效率太低，可以重写函数进行优化

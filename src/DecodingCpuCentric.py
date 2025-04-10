@@ -64,6 +64,7 @@ class DecodingCpuCentric(ABC):
         self.pending_verified_len = 0
 
         self.terminate_tensor = torch.tensor([0], dtype=torch.int)
+        self.dataset_name = ""
 
     def _init_para_sd_config(self) -> None:
         self.gpu_group = dist.new_group([1, 2, 3])
@@ -405,7 +406,7 @@ class DecodingCpuCentric(ABC):
         if self.is_target_model:
             print(f"整个model通信的执行时间:{sum}")
             # self.inference_data.exe_time = sum
-            print(self.inference_data.get_inference_data(is_store=True,file_path=f"{Config.PROFILE_MODEL_INFERENCE_DIR}/para_sd.jsonl"))
+            print(self.inference_data.get_inference_data(is_store=True,file_path=f"{Config.PROFILE_MODEL_INFERENCE_DIR}/para_sd_{self.dataset_name}.jsonl"))
             return prefix
 
 

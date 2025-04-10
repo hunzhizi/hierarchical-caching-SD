@@ -17,7 +17,7 @@ import torch.distributed as dist
 class EvalGSM8K(DecodingCpuCentric):
     def __init__(self, args):
         super().__init__(args)
-        
+        self.dataset_name = "GSM8k"
         # organize cot(chain of thought) examples
         self.ANS_RE = re.compile(r"#### (\-?[0-9\.\,]+)")
         self.INVALID_ANS = "[invalid]"

@@ -4,7 +4,7 @@ class Config():
     _3090ti = "/mnt/data/zhouShaoRepo/model"
     PREDICTION_NUM = 2
     MODEL_NUM = 3
-    MAX_LEN = 1024
+    MAX_LEN = 2048
     BUFFER_SIZE = MAX_LEN + 50
     END_FLAG = 10
     MODEL_DIR = _heng_yuan_yun

@@ -120,7 +120,6 @@ class EvalMTBench(DecodingCpuCentric):
                         conv.append_message(conv.roles[1], None)
                         prompt = conv.get_prompt() + " "
                         input_ids = torch.tensor(self.tokenizer.encode(prompt)).unsqueeze(0)
-
                     torch.cuda.synchronize()
                     start_time = time.time()
                     output_ids = decoding(input_ids)
