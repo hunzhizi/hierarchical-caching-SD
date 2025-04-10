@@ -320,6 +320,7 @@ class DecodingCpuCentric(ABC):
             # 更新 seq_len
             seq_len = prefix.shape[1]
 
+        stop_tokens = torch.tensor(self.tokenizer.eos_token_id).to(self.device)
         recv_message = recv_buffer.cpu()
         while seq_len < max_tokens:
             # decode 过程
@@ -398,9 +399,8 @@ class DecodingCpuCentric(ABC):
                         prefix = torch.cat([prefix,predicted[:, :acc_token + 1 ]],dim=-1)
                         seq_len += acc_token + 1
                         # 如果碰到结束符，则推出推理
-                        # if self.is_target_model:
-                        #     if set(predicted[:, :acc_token + 1 ][0].tolist()).isdisjoint({128001,128008,128009}):
-                        #         break
+                        if self.is_target_model and torch.isin(predicted[:, :acc_token + 1 ][0], stop_tokens).any().item():
+                            break
 
         if self.is_target_model:
             print(f"整个model通信的执行时间:{sum}")
